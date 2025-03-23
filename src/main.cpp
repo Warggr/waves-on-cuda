@@ -158,16 +158,56 @@ public:
         const unsigned int shader_program = load_shader_program("res/vertex_shader.spv", "res/fragment_shader.spv");
         glUseProgram(shader_program);
 
+        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
             if(grid_to_render == nullptr) continue;
             {
                 std::lock_guard guard(mutex);
-                if(grid_to_render != nullptr) continue;
+                if(grid_to_render == nullptr) continue;
 
+                GLfloat triangles[grid_to_render->rows()][grid_to_render->cols()][2][3][3];
+                const float grid_dx = 1.0 / static_cast<float>(grid_to_render->rows()),
+                    grid_dy = 1.0 / static_cast<float>(grid_to_render->cols());
+                for (int i = 1; i<grid_to_render->cols(); i++) {
+                    for (int j = 1; j<grid_to_render->rows(); j++) {
+                        const float topLeft[3] = { (i-1)*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i-1][j-1]) },
+                            topRight[3] = { (i-1)*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i-1][j]) },
+                            bottomLeft[3] = { i*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i][j-1]) },
+                            bottomRight[3] = { i*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i][j]) };
 
+                        auto& tr1 = triangles[i-1][j-1][0],
+                         &tr2 = triangles[i-1][j-1][1];
+
+                        std::memcpy(&tr1[0], &topLeft, sizeof(topLeft));
+                        std::memcpy(&tr1[1], &bottomLeft, sizeof(topLeft));
+                        std::memcpy(&tr1[2], &topRight, sizeof(topLeft));
+
+                        std::memcpy(&tr2[0], &topRight, sizeof(topLeft));
+                        std::memcpy(&tr2[1], &bottomLeft, sizeof(topLeft));
+                        std::memcpy(&tr2[2], &bottomRight, sizeof(topLeft));
+                    }
+                }
+                // Transfer points to GPU memory
+                GLuint vbo;
+                glGenBuffers(1, &vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(triangles), triangles, GL_STATIC_DRAW);
+
+                GLuint vao = 0;
+                glGenVertexArrays(1, &vao);
+                glEnableVertexAttribArray(0);
+                glBindBuffer(GL_ARRAY_BUFFER, vao);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+                glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+                glDrawArrays(GL_TRIANGLES, 0, sizeof(triangles) / sizeof(triangles[0][0][0][0]));
+                std::cout << "Drawing triangles with " << sizeof(triangles) / sizeof(triangles[0][0][0][0]) << " points" << std::endl;
+                glfwSwapBuffers(window);
+
+                grid_to_render = nullptr;
             }
-            glfwSwapBuffers(window);
         }
     }
     static void error_callback(int error, const char* description){
@@ -177,7 +217,8 @@ public:
         std::cerr << type << "," << id << "," << severity << "," << std::string_view(message, length) << '\n';
     }
     void render(const Grid& grid) {
-
+        std::lock_guard guard(mutex);
+        grid_to_render = &grid; // TODO: maybe copy it so we don't render it while it's overwritten
     }
 };
 
@@ -185,4 +226,9 @@ int main() {
     MyGLFW myGlfw;
 
     World world;
+
+    for (int i = 0; i < 100; i++) {
+        world.step();
+        myGlfw.render(world.grid());
+    }
 }
