@@ -12,9 +12,10 @@
 #include <sstream>
 #include <string_view>
 #include <cassert>
+#include <cstring>
 
 // Copied from https://codereview.stackexchange.com/a/22907
-static std::vector<char> readAllBytes(std::filesystem::path filename) {
+static std::vector<char> readAllBytes(const std::filesystem::path& filename) {
     std::ifstream ifs(filename, std::ios::binary|std::ios::ate);
     if(!ifs.is_open()){
         std::stringstream error_msg;
@@ -53,7 +54,7 @@ std::string_view get_error_msg(GLenum error){
 struct Shader {
     unsigned int shader;
 
-    Shader(std::filesystem::path filename, int shader_type, bool spirv = false) {
+    Shader(const std::filesystem::path& filename, int shader_type, bool spirv = false) {
         std::vector<char> program = readAllBytes(filename);
 
         // Adapted from https://www.geeks3d.com/20200211/how-to-load-spir-v-shaders-in-opengl/
@@ -92,12 +93,11 @@ struct Shader {
     ~Shader(){
         glDeleteShader(shader);
     }
-    operator int const () { return shader; }
+    operator unsigned int () const { return shader; }
 };
 
-unsigned int load_shader_program(std::filesystem::path vertex_shader, std::filesystem::path fragment_shader) {
-    unsigned int shader_program;
-    shader_program = glCreateProgram();
+unsigned int load_shader_program(const std::filesystem::path &vertex_shader, std::filesystem::path fragment_shader) {
+    const unsigned int shader_program = glCreateProgram();
     glAttachShader(shader_program, Shader(vertex_shader, GL_VERTEX_SHADER, true));
     glAttachShader(shader_program, Shader(fragment_shader, GL_FRAGMENT_SHADER, true));
     glLinkProgram(shader_program);
@@ -110,11 +110,11 @@ unsigned int load_shader_program(std::filesystem::path vertex_shader, std::files
 }
 
 class MyGLFW {
-    GLFWwindow* window;
+    GLFWwindow* window = nullptr;
     std::thread ui_thread;
     std::mutex mutex;
-    Grid* grid_to_render; // Protected by the mutex
-    bool should_exit; // Also protected by the mutex
+    const Grid* grid_to_render = nullptr; // Protected by the mutex
+    bool should_exit = false; // Also protected by the mutex
 public:
     MyGLFW() {
         ui_thread = std::thread([this](){ this->thread_main(); });
@@ -134,15 +134,14 @@ public:
         if(!glfwInit()) {
             throw std::runtime_error("Could not init GLFW");
         }
-        glfwSetErrorCallback(this->error_callback);
+        glfwSetErrorCallback(MyGLFW::error_callback);
         window = glfwCreateWindow(640, 480, "Waves", nullptr, nullptr);
         if(!window) {
             throw std::runtime_error("Could not create window");
         }
         glfwMakeContextCurrent(window); // This needs to be before we initialize GLEW
 
-        GLenum err = glewInit();
-        if(err != GLEW_OK) {
+        if(GLenum err = glewInit(); err != GLEW_OK) {
             std::stringstream err_msg;
             err_msg << "Could not initialize GLEW:" << glewGetErrorString(err);
             throw std::runtime_error(err_msg.str());
@@ -150,13 +149,13 @@ public:
         if(!GLEW_VERSION_2_1)
             throw std::runtime_error("Bad GLEW version");
         std::cerr << "Status: Using GLEW" << glewGetString(GLEW_VERSION) << '\n';
-        glDebugMessageCallback(this->debug_callback, nullptr);
+        glDebugMessageCallback(MyGLFW::debug_callback, nullptr);
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
-        unsigned int shader_program = load_shader_program("res/vertex_shader.spv", "res/fragment_shader.spv");
+        const unsigned int shader_program = load_shader_program("res/vertex_shader.spv", "res/fragment_shader.spv");
         glUseProgram(shader_program);
 
         while(!glfwWindowShouldClose(window)) {

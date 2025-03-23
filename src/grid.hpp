@@ -19,8 +19,11 @@ struct Grid {
     GridArray::iterator end() { return _data.end(); }
     GridArray::const_iterator begin() const { return _data.begin(); }
     GridArray::const_iterator end() const { return _data.end(); }
-    std::size_t size() { return _data.size(); }
+    std::size_t size() const { return _data.size(); }
+    std::size_t cols() const { return GRID_WIDTH; }
+    std::size_t rows() const { return GRID_HEIGHT; }
     std::array<double, GRID_WIDTH>& operator[] (int i) { return _data[i]; }
+    const std::array<double, GRID_WIDTH>& operator[] (int i) const { return _data[i]; }
 };
 
 class World {
