@@ -1,6 +1,10 @@
 #include "grid.hpp"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <iostream>
 #include <cstdlib>
 #include <stdexcept>
@@ -115,6 +119,13 @@ class MyGLFW {
     std::mutex mutex;
     const Grid* grid_to_render = nullptr; // Protected by the mutex
     bool should_exit = false; // Also protected by the mutex
+
+    float yaw = -45.0f, pitch = 0;
+    glm::vec3 cameraPos   = glm::vec3(-1.0f, 0.0f,  1.0f);
+    glm::vec3 cameraFront = -cameraPos;
+    glm::vec3 cameraUp    = glm::vec3(0.0f, 0.0f,  1.0f);
+    float mouseX = 400, mouseY = 300;
+    bool first_mouse = true;
 public:
     MyGLFW() {
         ui_thread = std::thread([this](){ this->thread_main(); });
@@ -129,6 +140,49 @@ public:
         }
         glfwDestroyWindow(window);
         glfwTerminate();
+    }
+    void processInput() {
+        if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
+
+        const float cameraSpeed = 0.05f; // adjust accordingly
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            cameraPos += cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            cameraPos -= cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    }
+    static void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+        auto self = static_cast<MyGLFW*>(glfwGetWindowUserPointer(window));
+        self->mouse_callback(xpos, ypos);
+    }
+    void mouse_callback(double xpos, double ypos) {
+        if (first_mouse) {
+            first_mouse = false;
+            mouseX = xpos; mouseY = ypos;
+        }
+
+        float xoffset = xpos - mouseX,
+            yoffset = ypos - mouseY;
+        mouseX = xpos; mouseY = ypos;
+        constexpr float sensitivity = 0.1f;
+        xoffset *= sensitivity; yoffset *= sensitivity;
+        yaw -= xoffset;
+        pitch -= yoffset;
+
+        if(pitch > 89.0f)
+            pitch =  89.0f;
+        if(pitch < -89.0f)
+            pitch = -89.0f;
+
+        glm::vec3 direction;
+        direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        direction.y = sin(glm::radians(yaw) * cos(glm::radians(pitch)));
+        direction.z = sin(glm::radians(pitch));
+        cameraFront = glm::normalize(direction);
     }
     void thread_main() {
         if(!glfwInit()) {
@@ -150,6 +204,9 @@ public:
             throw std::runtime_error("Bad GLEW version");
         std::cerr << "Status: Using GLEW" << glewGetString(GLEW_VERSION) << '\n';
         glDebugMessageCallback(MyGLFW::debug_callback, nullptr);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetWindowUserPointer(window, this);
+        glfwSetCursorPosCallback(window, &mouse_callback);
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
@@ -161,53 +218,76 @@ public:
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
         while(!glfwWindowShouldClose(window)) {
+            processInput();
             glfwPollEvents();
-            if(grid_to_render == nullptr) continue;
-            {
+            GLfloat triangles[grid_to_render->rows()-1][grid_to_render->cols()-1][2][3][3];
+            if(grid_to_render != nullptr) {
                 std::lock_guard guard(mutex);
-                if(grid_to_render == nullptr) continue;
+                if(grid_to_render != nullptr){ // Double checked locking
 
-                GLfloat triangles[grid_to_render->rows()][grid_to_render->cols()][2][3][3];
-                const float grid_dx = 1.0 / static_cast<float>(grid_to_render->rows()),
-                    grid_dy = 1.0 / static_cast<float>(grid_to_render->cols());
-                for (int i = 1; i<grid_to_render->cols(); i++) {
-                    for (int j = 1; j<grid_to_render->rows(); j++) {
-                        const float topLeft[3] = { (i-1)*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i-1][j-1]) },
-                            topRight[3] = { (i-1)*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i-1][j]) },
-                            bottomLeft[3] = { i*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i][j-1]) },
-                            bottomRight[3] = { i*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i][j]) };
+                    const float grid_dx = 1.0 / static_cast<float>(grid_to_render->rows()),
+                        grid_dy = 1.0 / static_cast<float>(grid_to_render->cols());
+                    for (int i = 1; i<grid_to_render->cols(); i++) {
+                        for (int j = 1; j<grid_to_render->rows(); j++) {
+                            const float topLeft[3] = { (i-1)*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i-1][j-1]) },
+                                topRight[3] = { (i-1)*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i-1][j]) },
+                                bottomLeft[3] = { i*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i][j-1]) },
+                                bottomRight[3] = { i*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i][j]) };
 
-                        auto& tr1 = triangles[i-1][j-1][0],
-                         &tr2 = triangles[i-1][j-1][1];
+                            auto& tr1 = triangles[i-1][j-1][0],
+                             &tr2 = triangles[i-1][j-1][1];
 
-                        std::memcpy(&tr1[0], &topLeft, sizeof(topLeft));
-                        std::memcpy(&tr1[1], &bottomLeft, sizeof(topLeft));
-                        std::memcpy(&tr1[2], &topRight, sizeof(topLeft));
+                            std::memcpy(&tr1[0], &topLeft, sizeof(topLeft));
+                            std::memcpy(&tr1[1], &bottomLeft, sizeof(topLeft));
+                            std::memcpy(&tr1[2], &topRight, sizeof(topLeft));
 
-                        std::memcpy(&tr2[0], &topRight, sizeof(topLeft));
-                        std::memcpy(&tr2[1], &bottomLeft, sizeof(topLeft));
-                        std::memcpy(&tr2[2], &bottomRight, sizeof(topLeft));
+                            std::memcpy(&tr2[0], &topRight, sizeof(topLeft));
+                            std::memcpy(&tr2[1], &bottomLeft, sizeof(topLeft));
+                            std::memcpy(&tr2[2], &bottomRight, sizeof(topLeft));
+                        }
                     }
+                    // Transfer points to GPU memory
+                    GLuint vbo;
+                    glGenBuffers(1, &vbo);
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                    glBufferData(GL_ARRAY_BUFFER, sizeof(triangles), triangles, GL_STATIC_DRAW);
+
+                    GLuint vao = 0;
+                    glGenVertexArrays(1, &vao);
+                    glEnableVertexAttribArray(0);
+                    glBindBuffer(GL_ARRAY_BUFFER, vao);
+                    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+                    grid_to_render = nullptr;
                 }
-                // Transfer points to GPU memory
-                GLuint vbo;
-                glGenBuffers(1, &vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(triangles), triangles, GL_STATIC_DRAW);
-
-                GLuint vao = 0;
-                glGenVertexArrays(1, &vao);
-                glEnableVertexAttribArray(0);
-                glBindBuffer(GL_ARRAY_BUFFER, vao);
-                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-                glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-                glDrawArrays(GL_TRIANGLES, 0, sizeof(triangles) / sizeof(triangles[0][0][0][0]));
-                std::cout << "Drawing triangles with " << sizeof(triangles) / sizeof(triangles[0][0][0][0]) << " points" << std::endl;
-                glfwSwapBuffers(window);
-
-                grid_to_render = nullptr;
             }
+            glm::mat4 proj[3] = {
+                // Model transformation
+                glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.01f)), glm::vec3(-0.5f, -0.5f, 0.0f)),
+                // View
+                glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp),
+                // glm::rotate(glm::mat4(1.0f), glm::radians(-80.f), glm::vec3(1.0f, 0.0f, 0.0f)),
+                // Projection
+                glm::perspective(glm::radians(45.0f), (float)width/(float)height, 0.1f, 10.0f),
+            };
+
+            // Transfer shader params to GPU memory
+            unsigned int ubo;
+            glGenBuffers(1, &ubo);
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(proj), nullptr, GL_DYNAMIC_DRAW); // Allocate memory
+
+            // Upload data to UBO
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(proj), glm::value_ptr(proj[0]));
+            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+            // Bind the UBO to binding point 0
+            glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+
+            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+            glDrawArrays(GL_TRIANGLES, 0, sizeof(triangles) / sizeof(triangles[0][0][0][0]));
+            std::cout << "Drawing triangles with " << sizeof(triangles) / sizeof(triangles[0][0][0][0]) << " points" << std::endl;
+            glfwSwapBuffers(window);
         }
     }
     static void error_callback(int error, const char* description){
@@ -227,7 +307,7 @@ int main() {
 
     World world;
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 20; i++) {
         world.step();
         myGlfw.render(world.grid());
     }
