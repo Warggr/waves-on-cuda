@@ -2,6 +2,18 @@
 
 using PlainCGrid = double*;
 
+Grid::Grid() {
+    cudaMallocManaged(&_data, GRID_WIDTH * GRID_HEIGHT * sizeof(double));
+    for (int i = 0; i < GRID_WIDTH * GRID_HEIGHT; i++) {
+        _data[i] = 0;
+    }
+}
+
+Grid::~Grid() {
+    cudaFree(_data);
+}
+
+__global__
 void cuda_step(PlainCGrid in, PlainCGrid out) {
     for(int i = 0; i < GRID_HEIGHT; i++) {
         out[i*GRID_WIDTH] = 1.0;
@@ -12,9 +24,6 @@ void cuda_step(PlainCGrid in, PlainCGrid out) {
 }
 
 void World::step() {
-    cuda_step(
-        reinterpret_cast<double*>(current_grid->_data.data()),
-        reinterpret_cast<double*>(other_grid->_data.data())
-    );
+    cuda_step<<< 1, 1 >>>(grid1._data, grid2._data );
     std::swap(other_grid, current_grid);
 }

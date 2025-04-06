@@ -303,9 +303,9 @@ public:
 };
 
 int main() {
-    MyGLFW myGlfw;
-
     World world;
+
+    MyGLFW myGlfw;
 
     for (int i = 0; i < 20; i++) {
         world.step();

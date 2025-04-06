@@ -2,28 +2,37 @@
 #include <array>
 #include <utility>
 
+#include "ArrayView.hpp"
+
 constexpr int GRID_WIDTH = 100,
     GRID_HEIGHT = 100;
 
 struct Grid {
-    using GridArray = std::array<std::array<double, GRID_WIDTH>, GRID_HEIGHT>;
-    GridArray _data;
-    Grid() {
-        for(auto& row: _data) {
-            for(double& cell: row) {
-                cell = 0;
-            }
-        }
-    }
-    GridArray::iterator begin() { return _data.begin(); }
-    GridArray::iterator end() { return _data.end(); }
-    GridArray::const_iterator begin() const { return _data.begin(); }
-    GridArray::const_iterator end() const { return _data.end(); }
-    std::size_t size() const { return _data.size(); }
+    double* _data;
+    Grid();
+    ~Grid();
+    struct row {
+        double* _data;
+        row(double* data) : _data(data) {}
+        row operator+() const { return {_data + GRID_WIDTH}; }
+        ArrayView<double, GRID_WIDTH> operator*() const { return {_data}; }
+    };
+    struct const_row {
+        const double* _data;
+        const_row(const double* data) : _data(data) {}
+        const_row operator+() const { return {_data + GRID_WIDTH}; }
+        ArrayView<const double, GRID_WIDTH> operator*() const { return {_data}; }
+    };
+
+    row begin() const { return { _data }; }
+    row end() const { return { _data + GRID_WIDTH * GRID_HEIGHT }; }
+    const_row cbegin() const { return { _data }; }
+    const_row cend() const { return { _data + GRID_WIDTH * GRID_HEIGHT }; }
+    std::size_t size() const { return GRID_WIDTH * GRID_HEIGHT; }
     std::size_t cols() const { return GRID_WIDTH; }
     std::size_t rows() const { return GRID_HEIGHT; }
-    std::array<double, GRID_WIDTH>& operator[] (int i) { return _data[i]; }
-    const std::array<double, GRID_WIDTH>& operator[] (int i) const { return _data[i]; }
+    double* operator[] (int i) { return _data + i*GRID_WIDTH; }
+    const double* operator[] (int i) const { return _data + i*GRID_WIDTH; }
 };
 
 class World {
