@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.11) # 3.11 required for FetchContent
-project(waves_on_cuda VERSION 0.1.0 LANGUAGES CXX)
+project(waves_on_cuda VERSION 0.1.0 LANGUAGES CXX CUDA)
+
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 75)
+endif()
 
 find_package(glfw3 3.4 REQUIRED)
 find_package(GLEW REQUIRED)

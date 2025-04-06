@@ -34,14 +34,6 @@ public:
         current_grid = &grid1;
         other_grid = &grid2;
     }
-    void step() {
-        for(int i = 0; i < GRID_HEIGHT; i++) {
-            (*other_grid)[i][0] = 1.0;
-            for(int j = 1; j<GRID_WIDTH; j++) {
-                (*other_grid)[i][j] = (*current_grid)[i][j-1];
-            }
-        }
-        std::swap(other_grid, current_grid);
-    }
+    void step();
     const Grid& grid() const { return *current_grid; }
 };
