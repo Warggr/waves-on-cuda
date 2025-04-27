@@ -1,9 +1,13 @@
 #include "grid.hpp"
+#include <stdexcept>
 
 using PlainCGrid = double*;
 
 Grid::Grid() {
-    cudaMallocManaged(&_data, GRID_WIDTH * GRID_HEIGHT * sizeof(double));
+    auto success = cudaMallocManaged(&_data, GRID_WIDTH * GRID_HEIGHT * sizeof(double));
+    if (success != cudaSuccess) {
+        throw std::runtime_error(cudaGetErrorName(success));
+    }
     for (int i = 0; i < GRID_WIDTH * GRID_HEIGHT; i++) {
         _data[i] = 0;
     }
