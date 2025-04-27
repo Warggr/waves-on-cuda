@@ -1,4 +1,4 @@
-add_executable(waves main.cpp grid.cu)
+add_executable(waves main.cpp my_glfw.cpp grid.cu)
 target_link_libraries(waves GL)
 target_link_libraries(waves glfw)
 target_link_libraries(waves GLEW::GLEW)

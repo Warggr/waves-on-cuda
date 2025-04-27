@@ -1,6 +1,4 @@
 #pragma once
-#include <array>
-#include <utility>
 
 #include "ArrayView.hpp"
 
@@ -11,23 +9,20 @@ struct Grid {
     double* _data;
     Grid();
     ~Grid();
+
+    template<class dtype>
     struct row {
-        double* _data;
-        row(double* data) : _data(data) {}
-        row operator+() const { return {_data + GRID_WIDTH}; }
-        ArrayView<double, GRID_WIDTH> operator*() const { return {_data}; }
-    };
-    struct const_row {
-        const double* _data;
-        const_row(const double* data) : _data(data) {}
-        const_row operator+() const { return {_data + GRID_WIDTH}; }
-        ArrayView<const double, GRID_WIDTH> operator*() const { return {_data}; }
+        dtype* _data;
+        row(dtype* data) : _data(data) {}
+        void operator++() { _data += GRID_WIDTH; }
+        bool operator!=(const row& other) const { return _data != other._data; }
+        ArrayView<dtype, GRID_WIDTH> operator*() const { return {_data}; }
     };
 
-    row begin() const { return { _data }; }
-    row end() const { return { _data + GRID_WIDTH * GRID_HEIGHT }; }
-    const_row cbegin() const { return { _data }; }
-    const_row cend() const { return { _data + GRID_WIDTH * GRID_HEIGHT }; }
+    row<double> begin() const { return { _data }; }
+    row<double> end() const { return { _data + GRID_WIDTH * GRID_HEIGHT }; }
+    row<const double> cbegin() const { return { _data }; }
+    row<const double> cend() const { return { _data + GRID_WIDTH * GRID_HEIGHT }; }
     std::size_t size() const { return GRID_WIDTH * GRID_HEIGHT; }
     std::size_t cols() const { return GRID_WIDTH; }
     std::size_t rows() const { return GRID_HEIGHT; }

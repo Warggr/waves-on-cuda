@@ -3,21 +3,25 @@
 
 #include <cstddef>
 
+template<class T>
+class ArrayIterator {
+    T* ptr;
+public:
+    ArrayIterator(T* ptr) : ptr(ptr) {}
+    void operator++() { ptr++; }
+    bool operator!=(const ArrayIterator& other) const { return ptr != other.ptr; }
+    T& operator*() const { return *ptr; }
+};
+
 template<class T, std::size_t N>
 class ArrayView {
     T* _data;
 public:
     ArrayView(T* data) : _data(data) {}
-    struct iterator {
-        T* ptr;
-    };
-    struct const_iterator {
-        const T* ptr;
-    };
-    iterator begin() { return iterator(_data); }
-    iterator end() { return iterator(_data + N); }
-    const_iterator begin() const { return const_iterator(_data); }
-    const_iterator end() const { return const_iterator(_data + N); }
+    ArrayIterator<T> begin() { return iterator(_data); }
+    ArrayIterator<T> end() { return iterator(_data + N); }
+    ArrayIterator<const T> begin() const { return {_data}; }
+    ArrayIterator<const T> end() const { return {_data + N}; }
     [[nodiscard]] constexpr int size() const { return N; }
     T& operator[](int i) { return _data[i]; }
     const T& operator[](int i) const { return _data[i]; }
