@@ -114,11 +114,19 @@ unsigned int load_shader_program(const std::filesystem::path &vertex_shader, std
 }
 
 class MyGLFW {
+public:
+    enum state {
+        RUNNING, CLOSED
+    };
+    struct WindowClosed : std::runtime_error {
+        WindowClosed(): std::runtime_error("window closed") {}
+    };
+private:
     GLFWwindow* window = nullptr;
     std::thread ui_thread;
     std::mutex mutex;
     const Grid* grid_to_render = nullptr; // Protected by the mutex
-    bool should_exit = false; // Also protected by the mutex
+    state _state = RUNNING; // Also protected by the mutex
 
     float yaw = -45.0f, pitch = 0;
     glm::vec3 cameraPos   = glm::vec3(-1.0f, 0.0f,  1.0f);
@@ -134,7 +142,7 @@ public:
         if(ui_thread.joinable()){
             {
                 std::lock_guard guard(mutex);
-                should_exit = true;
+                _state = CLOSED;
             }
             ui_thread.join();
         }
@@ -289,6 +297,10 @@ public:
             std::cout << "Drawing triangles with " << sizeof(triangles) / sizeof(triangles[0][0][0][0]) << " points" << std::endl;
             glfwSwapBuffers(window);
         }
+        {
+            std::lock_guard guard(mutex);
+            _state = CLOSED;
+        }
     }
     static void error_callback(int error, const char* description){
         std::cerr << "Error: " << description << '\n';
@@ -298,6 +310,9 @@ public:
     }
     void render(const Grid& grid) {
         std::lock_guard guard(mutex);
+        if (_state == CLOSED) {
+            throw WindowClosed();
+        }
         grid_to_render = &grid; // TODO: maybe copy it so we don't render it while it's overwritten
     }
 };
@@ -307,8 +322,12 @@ int main() {
 
     MyGLFW myGlfw;
 
-    for (int i = 0; i < 20; i++) {
-        world.step();
-        myGlfw.render(world.grid());
+    try {
+        while (true) {
+            world.step();
+            myGlfw.render(world.grid());
+        }
+    } catch (const MyGLFW::WindowClosed&) {
+
     }
 }
