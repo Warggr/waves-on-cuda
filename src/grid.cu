@@ -17,7 +17,9 @@ Grid::~Grid() {
     cudaFree(_data);
 }
 
+#ifndef NO_CUDA
 __global__
+#endif
 void cuda_step(PlainCGrid in, PlainCGrid out) {
     for(int i = 0; i < GRID_HEIGHT; i++) {
         out[i*GRID_WIDTH] = 1.0;
@@ -28,6 +30,10 @@ void cuda_step(PlainCGrid in, PlainCGrid out) {
 }
 
 void World::step() {
+#ifndef NO_CUDA
     cuda_step<<< 1, 1 >>>(current_grid->_data, other_grid->_data );
+#else
+    cuda_step(current_grid->_data, other_grid->_data);
+#endif
     std::swap(other_grid, current_grid);
 }

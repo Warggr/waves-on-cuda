@@ -5,6 +5,12 @@ target_link_libraries(waves GLEW::GLEW)
 target_link_libraries(waves glm::glm)
 target_link_libraries(waves GLU)
 
+option(NO_CUDA "Do not use CUDA." off)
+
+if(NO_CUDA)
+    add_compile_definitions(waves NO_CUDA)
+endif()
+
 if(APPLE)
     # We need to add the path to the driver (libcuda.dylib) as an rpath,
     # so that the static cuda runtime can find it at runtime.
