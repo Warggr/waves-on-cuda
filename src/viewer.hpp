@@ -15,7 +15,6 @@ private:
     MyGLFW _glfw;
     std::thread ui_thread;
     std::mutex mutex;
-    Grid grid_copy;
     const Grid* grid_to_render = nullptr; // Protected by the mutex
     bool closed = false;
 public:

@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <vector>
 #include <iostream>
+#include <cassert>
+#include <cstring>
 
 // Copied from https://codereview.stackexchange.com/a/22907
 static std::vector<char> readAllBytes(const std::filesystem::path& filename) {
@@ -209,7 +211,7 @@ void MyGLFW::signal_should_close() {
     _state = CLOSED;
 }
 
-bool MyGLFW::closed() {
+bool MyGLFW::closed() const {
     return _state == CLOSED;
 }
 

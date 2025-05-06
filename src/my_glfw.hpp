@@ -2,6 +2,7 @@
 #define MYGLFW_H
 
 #include <glm/mat4x4.hpp>
+#include <cstddef>
 
 class GLFWwindow;
 class Grid;
@@ -33,7 +34,7 @@ public:
     void render();
     void set_grid(const Grid* new_grid);
     void signal_should_close();
-    bool closed();
+    bool closed() const;
 };
 
 #endif //MYGLFW_H
