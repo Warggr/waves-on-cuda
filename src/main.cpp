@@ -13,7 +13,7 @@ std::ostream& operator<<(std::ostream& os, const Grid& grid) {
 }
 
 int main() {
-    World world;
+    World world(GRID_HEIGHT, GRID_WIDTH);
 
     Viewer myGlfw;
 
