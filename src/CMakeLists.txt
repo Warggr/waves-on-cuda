@@ -21,3 +21,6 @@ endif()
 
 #find_package(Threads REQUIRED)
 #target_link_libraries(waves Threads::Threads)
+
+find_package(Boost 1.40 COMPONENTS program_options REQUIRED)
+target_link_libraries(waves Boost::program_options)
