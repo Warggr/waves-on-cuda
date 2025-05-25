@@ -22,7 +22,6 @@ struct UIRunConfig {
 };
 
 struct PerfRunConfig {
-    unsigned int progress = 0;
     std::vector<unsigned int> niters;
 };
 
@@ -34,7 +33,6 @@ RunConfig parse_options(int argc, char* argv[]) {
     regular_options.add_options()
         ("help,h",      "Show help")
         ("perf,p","Run without GUI for [N] iterations to test performance")
-        ("progress,P", po::value<unsigned int>(), "Print time to stderr every N iterations")
     ;
 
     po::options_description hidden;
@@ -67,11 +65,6 @@ RunConfig parse_options(int argc, char* argv[]) {
     if (vm.count("perf")) {
         PerfRunConfig config_;
         config_.niters = vm["niters"].as<std::vector<unsigned int>>();
-        if (vm.count("progress")) {
-            config_.progress = vm["progress"].as<unsigned int>();
-        } else {
-            config_.progress = 0;
-        }
         config = config_;
     } else {
         config = UIRunConfig();
@@ -96,11 +89,6 @@ int main(int argc, char* argv[]) {
             std::cout << niters << ",";
             auto t1 = high_resolution_clock::now();
             for (int i = 0; i < niters; i++) {
-                if (config->progress != 0 and i % config->progress == 0) {
-                    auto t2 = high_resolution_clock::now();
-                    duration<double, std::milli> runtime = t2 - t1;
-                    std::cerr << i << ":" << runtime.count() << " ms" << std::endl;
-                }
                 world.step();
             }
             auto t2 = high_resolution_clock::now();
