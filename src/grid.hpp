@@ -52,6 +52,6 @@ public:
         current_grid = &grid1;
         other_grid = &grid2;
     }
-    void step();
+    void step(bool sync = false);
     const Grid& grid() const { return *current_grid; }
 };

@@ -35,12 +35,14 @@ void cuda_step(const double* in, PlainCGrid out, double t, double c, std::size_t
     }
 }
 
-void World::step() {
+void World::step(bool sync) {
     const double c = WAVE_SPEED * grid1.cols() * dt;
     assert(c <= 1.0);
 #ifndef NO_CUDA
     cuda_step<<< 1, 1 >>>(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols());
-    cudaDeviceSynchronize();
+    if (sync) {
+        cudaDeviceSynchronize();
+    }
 #else
     cuda_step(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols());
 #endif

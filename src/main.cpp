@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
 
         try {
             while (true) {
-                world.step();
+                world.step(true);
                 myGlfw.render(world.grid());
                 tick_time += dt_as_duration;
                 std::this_thread::sleep_until(tick_time);
