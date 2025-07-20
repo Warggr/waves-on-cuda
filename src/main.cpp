@@ -25,7 +25,11 @@ struct PerfRunConfig {
     std::vector<unsigned int> niters;
 };
 
-using RunConfig = std::variant<UIRunConfig, PerfRunConfig>;
+struct RunConfig {
+    std::size_t grid_size = 100;
+    double time_step = 0.01;
+    std::variant<UIRunConfig, PerfRunConfig> specific_config;
+};
 
 RunConfig parse_options(int argc, char* argv[]) {
     RunConfig config;
@@ -33,6 +37,8 @@ RunConfig parse_options(int argc, char* argv[]) {
     regular_options.add_options()
         ("help,h",      "Show help")
         ("perf,p","Run without GUI for [N] iterations to test performance")
+	("size,s", po::value<unsigned int>(), "Set grid size to s")
+	("timestep,t", po::value<double>())
     ;
 
     po::options_description hidden;
@@ -65,10 +71,16 @@ RunConfig parse_options(int argc, char* argv[]) {
     if (vm.count("perf")) {
         PerfRunConfig config_;
         config_.niters = vm["niters"].as<std::vector<unsigned int>>();
-        config = config_;
+        config.specific_config = config_;
     } else {
-        config = UIRunConfig();
+        config.specific_config = UIRunConfig();
     }
+    if (vm.count("size")) {
+        config.grid_size = vm["size"].as<unsigned int>();
+    }
+	if (vm.count("timestep")) {
+		config.time_step = vm["timestep"].as<double>();
+	}
     return config;
 }
 
@@ -77,12 +89,9 @@ int main(int argc, char* argv[]) {
 
     using namespace std::chrono;
 
-    const double dt = 0.01;
-    const std::size_t GRID_WIDTH = 100, GRID_HEIGHT = 100;
+    World world(options.grid_size, options.grid_size, options.time_step);
 
-    World world(GRID_HEIGHT, GRID_WIDTH, dt);
-
-    auto config = std::get_if<PerfRunConfig>(&options);
+    auto config = std::get_if<PerfRunConfig>(&options.specific_config);
     if (config) {
         std::cout << "#N,time[ms]" << std::endl;
         for (const unsigned int niters : config->niters) {
@@ -98,7 +107,7 @@ int main(int argc, char* argv[]) {
     } else {
         Viewer myGlfw;
 
-        const steady_clock::duration dt_as_duration = duration_cast<steady_clock::duration>(duration<float, std::milli>(1000 * dt));
+        const steady_clock::duration dt_as_duration = duration_cast<steady_clock::duration>(duration<float, std::milli>(1000 * options.time_step));
         auto tick_time = steady_clock::now();
 
         try {
