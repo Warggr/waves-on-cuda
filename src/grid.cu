@@ -30,7 +30,7 @@ constexpr double SINE_FREQ = 2.0; // in 1 / time unit
 constexpr double SINE_FREQ_2PI = SINE_FREQ * 2 * M_PI;
 constexpr double WAVE_SPEED = 0.5; // in space unit / time unit.
 
-void step(
+void nocuda_step(
     const double* in,
     PlainCGrid out,
     double t,
@@ -73,7 +73,7 @@ void World::step(bool sync) {
         cudaDeviceSynchronize();
     }
 #else
-    step(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols());
+    nocuda_step(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols());
 #endif
     std::swap(other_grid, current_grid);
     t += dt;
