@@ -96,10 +96,12 @@ int main(int argc, char* argv[]) {
         std::cout << "#N,time[ms]" << std::endl;
         for (const unsigned int niters : config->niters) {
             std::cout << niters << ",";
+            world.reset();
             auto t1 = high_resolution_clock::now();
             for (int i = 0; i < niters; i++) {
                 world.step();
             }
+            world.synchronize();
             auto t2 = high_resolution_clock::now();
             duration<double, std::milli> runtime = t2 - t1;
             std::cout << runtime.count() << std::endl;

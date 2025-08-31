@@ -9,13 +9,21 @@ Grid::Grid(std::size_t grid_height, std::size_t grid_width): _grid_height(grid_h
     if (success != cudaSuccess) {
         throw std::runtime_error(cudaGetErrorName(success));
     }
-    for (int i = 0; i < _grid_width * _grid_height; i++) {
-        _data[i] = 0;
-    }
+    reset();
 }
 
 Grid::~Grid() {
     cudaFree(_data);
+}
+
+void World::synchronize() {
+#ifndef NO_CUDA
+    cudaDeviceSynchronize();
+#endif
+}
+
+void Grid::reset() {
+    memset(_data, 0, _grid_width * _grid_height * sizeof(*_data));
 }
 
 constexpr double SINE_FREQ = 2.0; // in 1 / time unit

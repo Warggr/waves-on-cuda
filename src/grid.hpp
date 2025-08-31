@@ -17,6 +17,8 @@ struct Grid {
     Grid(std::size_t grid_height, std::size_t grid_width);
     ~Grid();
 
+    void reset();
+
     template<class T>
     struct row {
         T* _data;
@@ -54,4 +56,6 @@ public:
     }
     void step(bool sync = false);
     const Grid& grid() const { return *current_grid; }
+    inline void reset() { current_grid->reset(); }
+    void synchronize();
 };
