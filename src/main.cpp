@@ -98,9 +98,7 @@ int main(int argc, char* argv[]) {
             std::cout << niters << ",";
             world.reset();
             auto t1 = high_resolution_clock::now();
-            for (int i = 0; i < niters; i++) {
-                world.step();
-            }
+            world.multi_step(niters);
             world.synchronize();
             auto t2 = high_resolution_clock::now();
             duration<double, std::milli> runtime = t2 - t1;
@@ -114,7 +112,8 @@ int main(int argc, char* argv[]) {
 
         try {
             while (true) {
-                world.step(true);
+                world.step();
+                world.synchronize();
                 myGlfw.render(world.grid());
                 tick_time += dt_as_duration;
                 std::this_thread::sleep_until(tick_time);

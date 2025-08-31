@@ -54,7 +54,8 @@ public:
         current_grid = &grid1;
         other_grid = &grid2;
     }
-    void step(bool sync = false);
+    void step();
+    void multi_step(unsigned N);
     const Grid& grid() const { return *current_grid; }
     inline void reset() { current_grid->reset(); }
     void synchronize();
