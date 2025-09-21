@@ -215,14 +215,14 @@ bool MyGLFW::closed() const {
     return _state == CLOSED;
 }
 
-void MyGLFW::set_grid(const Grid* grid_to_render) {
-    GLfloat triangles[grid_to_render->rows()-1][grid_to_render->cols()-1][2][3][3];
+void MyGLFW::set_grid(const Grid<double, 2>* grid_to_render) {
+    GLfloat triangles[grid_to_render->shape()[0]-1][grid_to_render->shape()[1]-1][2][3][3];
     nbTriangles = sizeof(triangles) / sizeof(triangles[0][0][0][0]);
 
-    const float grid_dx = 1.0 / static_cast<float>(grid_to_render->rows()),
-    grid_dy = 1.0 / static_cast<float>(grid_to_render->cols());
-    for (int i = 1; i<grid_to_render->cols(); i++) {
-        for (int j = 1; j<grid_to_render->rows(); j++) {
+    const float grid_dx = 1.0 / static_cast<float>(grid_to_render->shape()[0]),
+    grid_dy = 1.0 / static_cast<float>(grid_to_render->shape()[1]);
+    for (int i = 1; i<grid_to_render->shape()[0]; i++) {
+        for (int j = 1; j<grid_to_render->shape()[1]; j++) {
             const float topLeft[3] = { (i-1)*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i-1][j-1]) },
                 topRight[3] = { (i-1)*grid_dx, j*grid_dy, static_cast<float>((*grid_to_render)[i-1][j]) },
                 bottomLeft[3] = { i*grid_dx, (j-1)*grid_dy, static_cast<float>((*grid_to_render)[i][j-1]) },

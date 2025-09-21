@@ -6,7 +6,7 @@
 #include <iostream>
 #include <variant>
 
-std::ostream& operator<<(std::ostream& os, const Grid& grid) {
+std::ostream& operator<<(std::ostream& os, const World::Grid& grid) {
     for (const auto& row : grid) {
         for (const auto& col : row) {
             os << col << " ";

@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <thread>
 
+using WorldGrid = Grid<double, 2>;
+
 class Viewer {
 public:
     struct WindowClosed : std::runtime_error {
@@ -15,7 +17,7 @@ private:
     MyGLFW _glfw;
     std::thread ui_thread;
     std::mutex mutex;
-    const Grid* grid_to_render = nullptr; // Protected by the mutex
+    const WorldGrid* grid_to_render = nullptr; // Protected by the mutex
     bool closed = false;
 public:
     Viewer() {
@@ -43,7 +45,7 @@ public:
         }
         closed = true;
     }
-    void render(const Grid& grid) {
+    void render(const WorldGrid& grid) {
         std::lock_guard guard(mutex);
         if (closed) {
             throw WindowClosed();

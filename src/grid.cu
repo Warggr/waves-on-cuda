@@ -2,18 +2,25 @@
 #include <stdexcept>
 #include <cassert>
 
+template class Grid<double, 2>;
+
 using PlainCGrid = double*;
 
-Grid::Grid(std::size_t grid_height, std::size_t grid_width): _grid_height(grid_height), _grid_width(grid_width) {
-    auto success = cudaMallocManaged(&_data, _grid_width * _grid_height * sizeof(double));
+template<class dtype, unsigned int dim>
+Grid<dtype, dim>::Grid(std::array<const std::size_t, dim>&& dimensions):
+    _size(std::move(dimensions)),
+    GridView<dtype, dim>(nullptr, this->_size)
+{
+    auto success = cudaMallocManaged(&this->_data, this->size() * sizeof(dtype));
     if (success != cudaSuccess) {
         throw std::runtime_error(cudaGetErrorName(success));
     }
     reset();
 }
 
-Grid::~Grid() {
-    cudaFree(_data);
+template<class dtype, unsigned int dim>
+Grid<dtype, dim>::~Grid() {
+    cudaFree(this->_data);
 }
 
 void World::synchronize() {
@@ -22,8 +29,9 @@ void World::synchronize() {
 #endif
 }
 
-void Grid::reset() {
-    memset(_data, 0, _grid_width * _grid_height * sizeof(*_data));
+template<class dtype, unsigned int dim>
+void Grid<dtype, dim>::reset() {
+    memset(this->_data, 0, this->size() * sizeof(dtype));
 }
 
 constexpr double SINE_FREQ = 2.0; // in 1 / time unit
@@ -86,10 +94,10 @@ void cuda_multistep(
 }
 
 void World::step() {
-    const double c = WAVE_SPEED * grid1.cols() * dt;
+    const double c = WAVE_SPEED * grid1.shape()[0] * dt;
     assert(c <= 1.0);
 #ifndef NO_CUDA
-    cuda_step<<< 1, other_grid->cols() >>>(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols(), 1);
+    cuda_step<<< 1, other_grid->shape()[1] >>>(current_grid->data(), other_grid->data(), t, c, other_grid->shape()[1], other_grid->shape()[0], 1);
 #else
     nocuda_step(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols());
 #endif
@@ -98,10 +106,10 @@ void World::step() {
 }
 
 void World::multi_step(unsigned N) {
-    const double c = WAVE_SPEED * grid1.cols() * dt;
+    const double c = WAVE_SPEED * grid1.shape()[0] * dt;
     assert(c <= 1.0);
 #ifndef NO_CUDA
-    cuda_multistep<<< 1, other_grid->cols() >>>(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols(), 1, N);
+    cuda_multistep<<< 1, other_grid->shape()[1] >>>(current_grid->data(), other_grid->data(), t, c, other_grid->shape()[1], other_grid->shape()[0], 1, N);
 #else
     for(unsigned i = 0; i < N; i++){
         nocuda_step(current_grid->_data, other_grid->_data, t, c, other_grid->rows(), other_grid->cols());

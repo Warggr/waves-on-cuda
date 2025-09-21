@@ -5,6 +5,7 @@
 #include <cstddef>
 
 class GLFWwindow;
+template<class T, unsigned int dim>
 class Grid;
 
 class MyGLFW {
@@ -32,7 +33,7 @@ public:
     ~MyGLFW();
     void initialize();
     void render();
-    void set_grid(const Grid* new_grid);
+    void set_grid(const Grid<double, 2>* new_grid);
     void signal_should_close();
     bool closed() const;
 };

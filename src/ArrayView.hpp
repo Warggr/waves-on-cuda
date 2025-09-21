@@ -4,17 +4,14 @@
 #include <cstddef>
 
 template<class T, std::size_t N>
-class ArrayView {
+struct ArrayView {
     T* _data;
-public:
+
     ArrayView(T* data) : _data(data) {}
-    T* begin() { return iterator(_data); }
-    T* end() { return iterator(_data + N); }
-    const T* begin() const { return {_data}; }
-    const T* end() const { return {_data + N}; }
+    T* begin() const { return _data; }
+    T* end() const { return _data + N; }
     [[nodiscard]] constexpr int size() const { return N; }
-    T& operator[](int i) { return _data[i]; }
-    const T& operator[](int i) const { return _data[i]; }
+    T& operator[](int i) const { return _data[i]; }
 };
 
 #endif //NONOWNINGARRAY_HPP
