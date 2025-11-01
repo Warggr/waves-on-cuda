@@ -26,6 +26,7 @@ protected:
     int width, height;
     bool first_mouse = true;
     std::size_t nbTriangles;
+    GLuint vao = 0, ubo;
 
     void mouse_callback(double xpos, double ypos);
     friend void mouse_callback(GLFWwindow* window, double xpos, double ypos);

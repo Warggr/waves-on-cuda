@@ -153,6 +153,12 @@ void MyGLFW::initialize() {
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
     _state = RUNNING;
+
+    // Allocate memory for shader params
+    glGenBuffers(1, &ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::mat4) * 3, nullptr, GL_DYNAMIC_DRAW); // Allocate memory
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
 }
 
 MyGLFW::~MyGLFW() {
@@ -239,23 +245,26 @@ void Renderer2D::set_grid(const Grid<double, 2>* grid_to_render) {
             std::memcpy(&tr2[2], &bottomRight, sizeof(topLeft));
         }
     }
-    set_triangles(std::span(reinterpret_cast<GLfloat*>(triangles), sizeof(triangles)));
+    set_triangles(std::span(reinterpret_cast<GLfloat*>(triangles), sizeof(triangles) / sizeof(GLfloat)));
 }
 
 void MyGLFW::set_triangles(std::span<GLfloat> triangles) {
-    nbTriangles = triangles.size() / 3;
+    nbTriangles = triangles.size() / 9;
     std::cout << "Displaying " << nbTriangles << " triangles\n";
     // Transfer points to GPU memory
     GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, triangles.size(), triangles.data(), GL_STATIC_DRAW);
-
-    GLuint vao = 0;
     glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    // VAO should be bound first, apparently
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    glBufferData(GL_ARRAY_BUFFER, triangles.size() * sizeof(GLfloat), triangles.data(), GL_STATIC_DRAW);
+
     glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vao);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBindVertexArray(0);
 }
 
 void MyGLFW::render() {
@@ -264,27 +273,22 @@ void MyGLFW::render() {
 
     glm::mat4 proj[3] = {
         // Model transformation
-        glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.01f)), glm::vec3(-0.5f, -0.5f, 0.0f)),
+        glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f)), glm::vec3(-0.5f, -0.5f, -0.5f)),
         // View
         glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp),
         // Projection
         glm::perspective(glm::radians(45.0f), (float)width/(float)height, 0.1f, 10.0f),
     };
 
-    // Transfer shader params to GPU memory
-    unsigned int ubo;
-    glGenBuffers(1, &ubo);
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(proj), nullptr, GL_DYNAMIC_DRAW); // Allocate memory
-
     // Upload data to UBO
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(proj), glm::value_ptr(proj[0]));
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    // Bind the UBO to binding point 0
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+    //glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, nbTriangles);
+
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, 0, nbTriangles * 3);
+    glBindVertexArray(0);
     glfwSwapBuffers(window);
 }
