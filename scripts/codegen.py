@@ -1,7 +1,6 @@
 from dataclasses import is_dataclass, fields
 from collections.abc import Sequence
 from jinja2 import Environment, FileSystemLoader
-import sys
 from pathlib import Path
 import numpy as np
 
@@ -21,7 +20,7 @@ def type_to_ctype(t):
         if type(shape) is int:
             base = f'std::array<{base}, {shape}>'
         else:
-            for d in shape:
+            for d in reversed(shape):
                 base = f'std::array<{base}, {d}>'
         return base, suff
     elif type(t) is dict:
@@ -47,8 +46,6 @@ def c_struct_def(cls, name):
 
 def c_init(value, indent=0):
     """Recursively format Python dataclass/containers into C initializers."""
-    space = " " * indent
-
     # None
     if value is None:
         return "0"
@@ -77,48 +74,55 @@ def c_init(value, indent=0):
     raise TypeError(f"Unsupported type: {type(value)}")
 
 
+def get_c_lib(**kwargs):
+    env = Environment(loader=FileSystemLoader(Path(__file__).parent), trim_blocks=True, lstrip_blocks=True)
+    env.globals['c_init'] = c_init
+    template = env.get_template("cache.cpp.jinja")
+    output = template.render(**kwargs)
+    return output
+
+
+def get_c_header():
+    output = ["#pragma once", "#include <array>"]
+    import structures
+
+    for symbol, obj in vars(structures).items():
+        if symbol.startswith('__') or str(type(obj)) == "<class 'module'>":
+            continue
+        if hasattr(obj, '__module__') and obj.__module__ != "structures":
+            continue
+        if type(obj) in (int, float):
+            output.append(f"constexpr {type(obj).__name__} {symbol} = {obj};")
+        elif type(obj) is type:
+            output.append(c_struct_def(obj, symbol))
+    output.append("extern struct LookupTable lookup_table; extern struct CubeGeometry cube_geometry;")
+    return '\n'.join(output)
+
+
 if __name__ == "__main__":
     import argparse
+    from rotations import cube_geometry as get_cube_geometry
+
     parser = argparse.ArgumentParser()
     parser.add_argument("what", choices=["h", "c"])
     parser.add_argument("-o", type=Path, help="output path")
     args = parser.parse_args()
-    
+
     if args.what == "h":
+        output = get_c_header()
         out_default_filename = Path("generated") / "cache.h"
-        output = ["#pragma once", "#include <array>"]
-        import structures
 
-        for symbol, obj in vars(structures).items():
-            if symbol.startswith('__') or str(type(obj)) == "<class 'module'>":
-                continue
-            if hasattr(obj, '__module__') and obj.__module__ != "structures":
-                continue
-            if type(obj) in (int, float):
-                output.append(f"constexpr {type(obj).__name__} {symbol} = {obj};")
-            elif type(obj) is type:
-                output.append(c_struct_def(obj, symbol))
-        output.append("extern struct LookupTable lookup_table; extern struct CubeGeometry cube_geometry;")
-        output = '\n'.join(output)
     else:
-        from structures import LookupTable, CubeGeometry, EdgeDef, NB_EDGES
+        from structures import LookupTable
 
-        cube_geometry = CubeGeometry(
-            adjacency=[[0]*4 for _ in range(6)],
-            edge_definition=[EdgeDef(a=0,b=1,x=0,y=0,z=0,changing_dim=0) for _ in range(NB_EDGES)]
-        )
+        cube_geometry = get_cube_geometry()
 
         lookup_table = LookupTable(
             all_cases=[],
             all_subcases=[],
-            all_permutations=[],
-            case_table=[]
+            case_table=[],
         )
-
-        env = Environment(loader=FileSystemLoader(Path(__file__).parent), trim_blocks=True, lstrip_blocks=True)
-        env.globals['c_init'] = c_init
-        template = env.get_template("cache.cpp.jinja")
-        output = template.render(cube_geometry=cube_geometry, lookup_table=lookup_table, CubeGeometry=CubeGeometry, LookupTable=LookupTable)
+        output = get_c_lib(cube_geometry=cube_geometry, lookup_table=lookup_table)
         out_default_filename = Path("generated") / "cache.c"
 
     out_file = args.o or out_default_filename

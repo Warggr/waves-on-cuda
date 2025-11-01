@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 import numpy as np
 
+NB_VERTICES = 8
 NB_EDGES = 12
 
 @dataclass
-class Rotation:
-    vertex_permutation: (np.dtype('u1'), 8)
+class CubeRotation:
+    vertex_permutation: (np.dtype('u1'), NB_VERTICES)
     edge_permutation: (np.dtype('u1'), NB_EDGES)
 
 @dataclass
@@ -19,8 +20,9 @@ class EdgeDef:
 
 @dataclass
 class CubeGeometry:
-    adjacency: (int, (4, 6))
+    adjacency: (int, (6, 4))
     edge_definition: (EdgeDef, NB_EDGES)
+    all_permutations: (CubeRotation, 24)
 
 @dataclass
 class Subcase:
@@ -46,6 +48,4 @@ class CasePtr:
 class LookupTable:
     all_cases: (Case, 14)
     all_subcases: (Subcase, 33)
-    all_permutations: (Rotation, 24)
     case_table: (CasePtr, 256)
-
