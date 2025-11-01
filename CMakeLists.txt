@@ -19,5 +19,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glm)
 endif()
 
+add_subdirectory(scripts)
 add_subdirectory(src)
 add_subdirectory(res)
