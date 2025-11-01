@@ -1,15 +1,16 @@
-#include "marching_cubes.hpp"
 #include "grid.hpp"
-#include <fstream>
-#include <iostream>
+#include "renderer.hpp"
 
 int main(int argc, char** argv) {
-	std::ifstream cache;
-	cache.open("lookup_tables.dat", std::ios::binary);
-	if(!cache.is_open()) {
-		std::cerr << "Couldn't open cache `lookup_tables.dat'!" << std::endl;
-		return 1;
+	Grid<double, 3> grid({ 10, 10, 10 });
+	for(const auto& [i, j, k]: grid.indices()){
+		grid[i][j][k] = (i-5)*(i-5) + (j-5)*(j-5) + (k-5)*(k-5);
 	}
 
-	Grid<double, 3> grid({ 10, 10, 10 });
+	Renderer3D renderer;
+	renderer.initialize();
+	renderer.set_grid(grid);
+	while(!renderer.closed()){
+		renderer.render();
+	}
 }

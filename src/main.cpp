@@ -1,5 +1,6 @@
 #include "grid.hpp"
 #include "viewer.hpp"
+#include "my_glfw.hpp"
 #include <boost/program_options.hpp>
 #include <ostream>
 #include <chrono>
@@ -8,8 +9,8 @@
 
 std::ostream& operator<<(std::ostream& os, const World::Grid& grid) {
     for (const auto& row : grid) {
-        for (const auto& col : row) {
-            os << col << " ";
+        for (const auto& cell : row) {
+            os << cell << " ";
         }
         os << "\n";
     }
@@ -84,6 +85,8 @@ RunConfig parse_options(int argc, char* argv[]) {
     return config;
 }
 
+using Viewer2D = Viewer<Renderer2D, Grid<double, 2>>;
+
 int main(int argc, char* argv[]) {
     auto options = parse_options(argc, argv);
 
@@ -105,7 +108,7 @@ int main(int argc, char* argv[]) {
             std::cout << runtime.count() << std::endl;
         }
     } else {
-        Viewer myGlfw;
+        Viewer2D myGlfw;
 
         const steady_clock::duration dt_as_duration = duration_cast<steady_clock::duration>(duration<float, std::milli>(1000 * options.time_step));
         auto tick_time = steady_clock::now();
@@ -118,7 +121,7 @@ int main(int argc, char* argv[]) {
                 tick_time += dt_as_duration;
                 std::this_thread::sleep_until(tick_time);
             }
-        } catch (const Viewer::WindowClosed&) {
+        } catch (const Viewer2D::WindowClosed&) {
 
         }
     }

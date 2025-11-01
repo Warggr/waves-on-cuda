@@ -1,8 +1,9 @@
 #ifndef MYGLFW_H
 #define MYGLFW_H
 
+#include <span>
+#include <GL/glew.h>
 #include <glm/mat4x4.hpp>
-#include <cstddef>
 
 class GLFWwindow;
 template<class T, size_t dim>
@@ -13,7 +14,7 @@ public:
     enum state {
         UNINITIALIZED, RUNNING, CLOSED
     };
-private:
+protected:
     state _state = UNINITIALIZED;
     GLFWwindow* window = nullptr;
 
@@ -32,10 +33,16 @@ private:
 public:
     ~MyGLFW();
     void initialize();
-    void render();
-    void set_grid(const Grid<double, 2>* new_grid);
     void signal_should_close();
     bool closed() const;
+
+    void set_triangles(std::span<GLfloat> triangles);
+    void render();
+};
+
+class Renderer2D: public MyGLFW {
+public:
+    void set_grid(const Grid<double, 2>* new_grid);
 };
 
 #endif //MYGLFW_H

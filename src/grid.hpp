@@ -134,7 +134,7 @@ private:
     double dt;
 public:
     World(std::size_t grid_height, std::size_t grid_width, double dt = 0.01):
-        dt(dt), grid1({grid_height, grid_width}), grid2({grid_height, grid_width})
+        grid1({grid_height, grid_width}), grid2({grid_height, grid_width}), dt(dt)
     {
         current_grid = &grid1;
         other_grid = &grid2;

@@ -1,5 +1,5 @@
 add_library(viewer my_glfw.cpp grid.cu)
-target_link_libraries(viewer PRIVATE GL)
+target_link_libraries(viewer PUBLIC GL)
 target_link_libraries(viewer PRIVATE glfw)
 target_link_libraries(viewer PRIVATE GLEW::GLEW)
 target_link_libraries(viewer PUBLIC glm::glm)

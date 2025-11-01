@@ -215,7 +215,7 @@ bool MyGLFW::closed() const {
     return _state == CLOSED;
 }
 
-void MyGLFW::set_grid(const Grid<double, 2>* grid_to_render) {
+void Renderer2D::set_grid(const Grid<double, 2>* grid_to_render) {
     GLfloat triangles[grid_to_render->shape()[0]-1][grid_to_render->shape()[1]-1][2][3][3];
     nbTriangles = sizeof(triangles) / sizeof(triangles[0][0][0][0]);
 
@@ -240,11 +240,15 @@ void MyGLFW::set_grid(const Grid<double, 2>* grid_to_render) {
             std::memcpy(&tr2[2], &bottomRight, sizeof(topLeft));
         }
     }
+}
+
+void MyGLFW::set_triangles(std::span<GLfloat> triangles) {
+    std::cout << "Displaying " << triangles.size() << " triangles\n";
     // Transfer points to GPU memory
     GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(triangles), triangles, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, triangles.size(), triangles.data(), GL_STATIC_DRAW);
 
     GLuint vao = 0;
     glGenVertexArrays(1, &vao);

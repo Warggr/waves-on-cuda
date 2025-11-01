@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.11) # 3.11 required for FetchContent
+cmake_minimum_required(VERSION 3.12) # 3.12 required for C++20
 project(waves_on_cuda VERSION 0.1.0 LANGUAGES CXX CUDA)
+
+set(CMAKE_CXX_STANDARD 20)
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 75)

@@ -1,20 +1,18 @@
 #ifndef VIEWER_H
 #define VIEWER_H
 
-#include "my_glfw.hpp"
 #include <mutex>
 #include <stdexcept>
 #include <thread>
 
-using WorldGrid = Grid<double, 2>;
-
+template<class Renderer, class WorldGrid>
 class Viewer {
 public:
     struct WindowClosed : std::runtime_error {
         WindowClosed(): std::runtime_error("window closed") {}
     };
 private:
-    MyGLFW _glfw;
+    Renderer renderer;
     std::thread ui_thread;
     std::mutex mutex;
     const WorldGrid* grid_to_render = nullptr; // Protected by the mutex
@@ -27,21 +25,21 @@ public:
         if(ui_thread.joinable()){
             {
                 std::lock_guard guard(mutex);
-                _glfw.signal_should_close();
+                renderer.signal_should_close();
             }
             ui_thread.join();
         }
     }
     void thread_main() {
-        _glfw.initialize();
-        while(!_glfw.closed()) {
+        renderer.initialize();
+        while(!renderer.closed()) {
             if(grid_to_render != nullptr) {
                 std::lock_guard guard(mutex);
                 if(grid_to_render != nullptr){ // Double checked locking
-                    _glfw.set_grid(grid_to_render);
+                    renderer.set_grid(grid_to_render);
                 }
             }
-            _glfw.render();
+            renderer.render();
         }
         closed = true;
     }

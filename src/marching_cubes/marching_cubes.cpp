@@ -1,5 +1,6 @@
 #include "marching_cubes.hpp"
 #include "grid.hpp"
+#include "generated/marching_cubes_cache.hpp"
 
 using std::size_t;
 
@@ -12,19 +13,19 @@ std::array<d, size> permute(std::array<d, size> original, std::array<idx_t, size
     return result;
 }
 
-void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& grid, std::vector<Triangle>& out){
+void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& grid, std::vector<Triangle<float>>& out){
     // Fetch 8 corner values
-	std::array<float, 8> v;
+    std::array<float, 8> v;
     for(int i = 0; i < 8; i++){
         v[i] = grid[x + (i&1)][y + ((i>>1)&1)][z + ((i>>2)&1)];
     }
 
-    std::array<Point3D, NB_EDGES> intersect;
+    std::array<Point3D<float>, NB_EDGES> intersect;
     for(int i = 0; i < NB_EDGES; i++){
 	auto edge = cube_geometry.edge_definition[i];
      	double a = v[edge.a],
 	       b = v[edge.b]; 
-	std::array<double, 3> midpoint = { static_cast<double>(edge.x), static_cast<double>(edge.y), static_cast<double>(edge.z) }; 
+        std::array<float, 3> midpoint = { static_cast<float>(edge.x), static_cast<float>(edge.y), static_cast<float>(edge.z) };
 	midpoint[edge.changing_dim] = a / (a - b);
 	intersect[i] = Point3D(midpoint);
     }
@@ -63,15 +64,15 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     intersect = permute(intersect, lookup_table.all_permutations[subcase_ptr.permutation].edge_permutation);
 
     for(const auto& edge_indices: subcase.triangles){
-	Triangle tri;
+        Triangle<float> tri;
 	for(size_t i = 0; i < 3; i++){
 	    tri.corners[i] = intersect[edge_indices[i]];
 	}
     }
 }
 
-std::vector<Triangle> marching_cubes(const Grid<double, 3>& grid, double isoLevel) {
-    std::vector<Triangle> out;
+std::vector<Triangle<float>> marching_cubes(const Grid<double, 3>& grid, double isoLevel) {
+    std::vector<Triangle<float>> out;
     for(size_t i = 0; i < grid.shape()[0]; i++){
     	for(size_t j = 0; j < grid.shape()[1]; j++){
             for(size_t k = 0; k < grid.shape()[2]; k++){
