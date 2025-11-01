@@ -22,41 +22,39 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
 
     std::array<Point3D<float>, NB_EDGES> intersect;
     for(int i = 0; i < NB_EDGES; i++){
-	auto edge = cube_geometry.edge_definition[i];
-     	double a = v[edge.a],
-	       b = v[edge.b]; 
+        auto edge = cube_geometry.edge_definition[i];
+        double a = v[edge.a],
+               b = v[edge.b]; 
         std::array<float, 3> midpoint = { static_cast<float>(edge.x), static_cast<float>(edge.y), static_cast<float>(edge.z) };
-	midpoint[edge.changing_dim] = a / (a - b);
-	intersect[i] = Point3D(midpoint);
+        midpoint[edge.changing_dim] = (a - isoLevel) / (a - b);
+        std::array<float, 3> midpoint_scale;
+        for(int j = 0; j < 3; j++) midpoint_scale[j] = (x + midpoint[j]) / grid.shape()[j];
+        intersect[i] = Point3D(midpoint_scale);
     }
 
     unsigned char index_ = 0;
     for(int i = 0; i < 8; i++){
-	if(v[i] > isoLevel) index_ += (1 << i);
+        if(v[i] > isoLevel) index_ += (1 << i);
     }
-    bool sign_flip = index_ > 4;
-    if(sign_flip) index_ = ~index_;
     const auto& case_ptr = lookup_table.case_table[index_];
     intersect = permute(intersect, cube_geometry.all_permutations[case_ptr.permutation].edge_permutation);
     v = permute(v, cube_geometry.all_permutations[case_ptr.permutation].vertex_permutation);
+    bool sign_flip = case_ptr.sign_flip;
 
     const Case& _case = lookup_table.all_cases[case_ptr._case];
 
     int test = 0;
     for(int i = 0; i<_case.num_tests; i++){
-	int side = _case.tests[i];
-	if(side == 0){
-	    break;
-	}
-        if(side == 7){
-	    test += (true ? 1 : 0); // TODO
-	} else {
-	    float a = v[cube_geometry.adjacency[side][0]],
-	          b = v[cube_geometry.adjacency[side][1]],
-	          c = v[cube_geometry.adjacency[side][2]],
-	          d = v[cube_geometry.adjacency[side][3]];
-	    test += ((a*c - b*d) > 0) ? (1 << i) : 0;
-	}
+        int side = _case.tests[i];
+        if(side == 6){
+            test += (true ? 1 : 0); // TODO
+        } else {
+            float a = v[cube_geometry.adjacency[side][0]],
+                  b = v[cube_geometry.adjacency[side][1]],
+                  c = v[cube_geometry.adjacency[side][2]],
+                  d = v[cube_geometry.adjacency[side][3]];
+            test += ((a*c - b*d) > 0) ? (1 << i) : 0;
+        }
     }
     const auto& subcase_ptr = _case.subcases[test];
     sign_flip = sign_flip ^ subcase_ptr.sign_flip;
@@ -66,7 +64,11 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     for(int i = 0; i < subcase.num_triangles; i++){
         Triangle<float> tri;
         for(size_t j = 0; j < 3; j++){
-            tri.corners[i] = intersect[subcase.triangles[i][j]];
+            if(sign_flip){
+                tri.corners[2-j] = intersect[subcase.triangles[i][j]];
+            } else {
+                tri.corners[j] = intersect[subcase.triangles[i][j]];
+            }
         }
         out.push_back(tri);
     }

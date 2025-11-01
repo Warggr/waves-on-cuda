@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
 		grid[i][j][k] = (i-5)*(i-5) + (j-5)*(j-5) + (k-5)*(k-5);
 	}
 
-	Renderer3D renderer;
+	Renderer3D renderer(25);
 	renderer.initialize();
 	renderer.set_grid(grid);
 	while(!renderer.closed()){

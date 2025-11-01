@@ -29,7 +29,7 @@ struct ShapeIterator {
     }
     const std::array<size_t, dimension> operator*() const { return _coords; }
     bool operator!=(const ShapeIterator& other){
-        return other.finished == this->finished && other._coords == this->_coords;
+        return other.finished != this->finished || other._coords != this->_coords;
     }
 };
 

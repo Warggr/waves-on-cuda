@@ -5,6 +5,8 @@
 class Renderer3D: public MyGLFW {
     float isoLevel;
 public:
+    Renderer3D(float isoLevel): isoLevel(isoLevel) {
+    }
     void set_grid(const Grid<double, 3>& grid) {
         std::vector<Triangle<float>> triangles = marching_cubes(grid, isoLevel);
         std::vector<GLfloat> vertex_data;
