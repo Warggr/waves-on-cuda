@@ -43,7 +43,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     const Case& _case = lookup_table.all_cases[case_ptr._case];
 
     int test = 0;
-    for(int i = 0; i<4; i++){
+    for(int i = 0; i<_case.num_tests; i++){
 	int side = _case.tests[i];
 	if(side == 0){
 	    break;
@@ -63,11 +63,12 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     const auto& subcase = lookup_table.all_subcases[subcase_ptr.subcase];
     intersect = permute(intersect, cube_geometry.all_permutations[subcase_ptr.permutation].edge_permutation);
 
-    for(const auto& edge_indices: subcase.triangles){
+    for(int i = 0; i < subcase.num_triangles; i++){
         Triangle<float> tri;
-	for(size_t i = 0; i < 3; i++){
-	    tri.corners[i] = intersect[edge_indices[i]];
-	}
+        for(size_t j = 0; j < 3; j++){
+            tri.corners[i] = intersect[subcase.triangles[i][j]];
+        }
+        out.push_back(tri);
     }
 }
 

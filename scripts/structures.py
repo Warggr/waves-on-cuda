@@ -22,23 +22,25 @@ class EdgeDef:
 
 @dataclass
 class CubeGeometry:
-    adjacency: (int, (6, 4))
+    adjacency: (np.dtype('u1'), (6, 4))
     edge_definition: (EdgeDef, NB_EDGES)
     all_permutations: (CubeRotation, 24)
 
 @dataclass
 class Subcase:
-    triangles: (int, (12, 3))
+    triangles: (np.dtype('u1'), (12, 3))
+    num_triangles: np.dtype('u1')
 
 @dataclass
 class SubcasePtr:
-    subcase: int
-    permutation: int
+    subcase: np.dtype('u1')
+    permutation: np.dtype('u1')
     sign_flip: bool
 
 @dataclass
 class Case:
-    tests: (int, 7)
+    tests: (np.dtype('u1'), 7)
+    num_tests: np.dtype('u1')
     subcases: (SubcasePtr, 128)
 
 @dataclass

@@ -92,14 +92,14 @@ edges_by_name['center'] = 12
 
 def add_subcase(test_bits: int, triangulation: Triangulation[Midpoint], name=None) -> tuple[int, int]:
     triangles = [ tuple(edges_by_name[corner] for corner in triangle) for triangle in triangulation.get_triangles()]
-    subcase = Subcase(triangles=triangles)
+    subcase = Subcase(triangles=triangles, num_triangles=len(triangles))
     if name is not None:
         subcase_by_name[name] = triangulation
     all_subcases.append(subcase)
     return test_bits, len(all_subcases) - 1
 
 def add_case(bits: int, tests, subcases: list[tuple[int, int]]) -> None:
-    all_cases.append((bits, Case(tests, subcases)))
+    all_cases.append((bits, Case(tests=tests, num_tests=len(tests), subcases=subcases)))
 
 def add_simple_case(bits: int, subcase: Triangulation[Midpoint], name=None):
     add_case(bits, tests=[], subcases=[add_subcase(0, subcase, name=name)])
@@ -215,7 +215,7 @@ add_case(bitmask(1,2,3,4), tests=[
     # 12.3 is 12.2 mirrored
 ])
 
-IMPOSSIBLE = -1
+IMPOSSIBLE = 255
 
 # Case 13
 center_independent_subcases = [
@@ -225,7 +225,7 @@ center_independent_subcases = [
     add_subcase(bitmask(1,4,3), center_surface((0,1),(0,4),(4,6),(4,5),(5,1),(5,7),(7,6),(7,3),(3,1),(3,2),(2,6), (0,2))),
     (bitmask(0,1), IMPOSSIBLE),
     # The reverse case is also necessary because there are two chiral three-face strips with regards to the 1s and 0s
-    (bitmask(0,1,2), -2), (bitmask(3,4,5), -3),
+    (bitmask(0,1,2), IMPOSSIBLE), (bitmask(3,4,5), IMPOSSIBLE),
 ]
 subcases = []
 for bitset, subcase in center_independent_subcases:
