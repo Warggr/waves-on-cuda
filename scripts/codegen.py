@@ -14,6 +14,8 @@ def type_to_ctype(t):
         return "bool", ""
     elif t in (np.dtype('u1'),):
         return "unsigned char", ""
+    elif t in (np.dtype('u4'),):
+        return "unsigned int", ""
     elif type(t) is tuple:
         base, shape = t
         base, suff = type_to_ctype(base)
@@ -44,34 +46,32 @@ def c_struct_def(cls, name):
     return "\n".join(lines)
 
 
-def c_init(value, indent=0):
+def c_init(value, indent=0) -> str:
     """Recursively format Python dataclass/containers into C initializers."""
-    # None
+    spaces = " " * indent
     if value is None:
-        return "0"
-
-    # Primitive
-    if isinstance(value, (int, float)):
-        return str(value)
-    if isinstance(value, bool):
-        return "True" if value else "False"
-
-    if isinstance(value, str):
-        return f"\"{value}\""
-
-    if is_dataclass(value):
+        result = "0"
+    # For some reason isinstance(True, int) = True, so we first need to check for bool
+    elif isinstance(value, bool):
+        result = "1" if value else "0"
+    elif isinstance(value, (int, float)):
+        result = str(value)
+    elif isinstance(value, str):
+        result = f"\"{value}\""
+    elif is_dataclass(value):
         parts = []
         for f in fields(value):
             fv = getattr(value, f.name)
             parts.append(f".{f.name} = {c_init(fv, indent + 2)}")
-        inner = ", ".join(parts)
-        return f"{{ {inner} }}"
-
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        elems = ", ".join(c_init(v, indent + 2) for v in value)
-        return "{{" + elems + "}}"
-
-    raise TypeError(f"Unsupported type: {type(value)}")
+        inner = (",\n" + spaces).join(parts)
+        result = "{" + inner + "\n" + spaces + "}"
+    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        elems = (",\n" + spaces).join(c_init(v, indent + 2) for v in value)
+        result = "{{" + elems + "\n" + spaces + "}}"
+    else:
+        raise TypeError(f"Unsupported type: {type(value)}")
+    assert "True" not in result
+    return result
 
 
 def get_c_lib(**kwargs):
@@ -113,15 +113,10 @@ if __name__ == "__main__":
         out_default_filename = Path("generated") / "cache.h"
 
     else:
-        from structures import LookupTable
+        from lookup_tables import lookup_table
 
         cube_geometry = get_cube_geometry()
 
-        lookup_table = LookupTable(
-            all_cases=[],
-            all_subcases=[],
-            case_table=[],
-        )
         output = get_c_lib(cube_geometry=cube_geometry, lookup_table=lookup_table)
         out_default_filename = Path("generated") / "cache.c"
 

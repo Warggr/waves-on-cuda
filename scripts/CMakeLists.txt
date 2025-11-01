@@ -1,12 +1,12 @@
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/marching_cubes_cache.hpp"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/structures.py"
     COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" h -o "${CMAKE_CURRENT_BINARY_DIR}/generated/marching_cubes_cache.hpp"
 )
 
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/cache.cpp"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/cache.cpp.jinja"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/cache.cpp.jinja" "${CMAKE_CURRENT_SOURCE_DIR}/structures.py"
     COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" c -o "${CMAKE_CURRENT_BINARY_DIR}/generated/cache.cpp"
 )
 

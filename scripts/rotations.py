@@ -1,7 +1,7 @@
 # coding: utf-8
 import numpy as np
 from scipy.spatial.transform import Rotation
-from structures import NB_EDGES, NB_VERTICES, CubeGeometry, CubeRotation, EdgeDef
+from structures import NB_EDGES, NB_FACES, NB_VERTICES, CubeGeometry, CubeRotation, EdgeDef
 from typing import Generator, Sequence, TypeAlias
 from itertools import product
 from functools import cache
@@ -12,6 +12,17 @@ Point3D: TypeAlias = tuple[float, float, float]
 Vector3D: TypeAlias = tuple[float, float, float]
 Segment: TypeAlias = tuple[Point3D, Point3D]
 
+
+def face_containing_corners(*points) -> int:
+    faces = [
+        face_id
+        for face_id, face_pts in enumerate(face_vertex_adjacency())
+        if all(pt in face_pts for pt in points)
+    ]
+    if len(faces) != 1:
+        raise ValueError('Face not found or ambiguous')
+    face, = faces
+    return face
 
 @cache
 def index_to_corner() -> Sequence[Point3D]:
@@ -48,7 +59,11 @@ def face_vertex_adjacency() -> (int, (6, 4)):
 
 @cache
 def edge_vertex_adjacency() -> dict[tuple[int, int], int]:
-    return { (edge.a, edge.b): i for i, edge in enumerate(index_to_edge()) }
+    result = {}
+    for i, edge in enumerate(index_to_edge()):
+        result[(edge.a, edge.b)] = i
+        result[(edge.b, edge.a)] = i
+    return result
 
 @cache
 def all_permutations() -> list[CubeRotation]:
@@ -125,32 +140,57 @@ def rotation_to_permutation(rot: Rotation) -> CubeRotation:
         edge = index_to_edge()[i]
         a, b = edge.a, edge.b
         a_perm, b_perm = vertex_permutation[a], vertex_permutation[b]
-        try:
-            permuted_index = edge_vertex_adjacency()[(a_perm, b_perm)]
-        except KeyError:
-            permuted_index = edge_vertex_adjacency()[(b_perm, a_perm)]
+        permuted_index = edge_vertex_adjacency()[(a_perm, b_perm)]
         edge_permutation[i] = permuted_index
 
-    return CubeRotation(vertex_permutation, edge_permutation)
+    face_permutation: Permutation = [None for _ in range(NB_FACES)]
+    for i in range(NB_FACES):
+        face_corners = face_vertex_adjacency()[i]
+        permuted_face_corners = [vertex_permutation[i] for i in face_corners]
+        permuted_index = face_containing_corners(*permuted_face_corners)
+        face_permutation[i] = permuted_index
+    # The center permutation is added to the end of the permutation and never changes.
+    face_permutation.append(len(face_permutation))
+
+    return CubeRotation(vertex_permutation, edge_permutation, face_permutation)
 
 
-def inverse(original: Permutation) -> Permutation:
+def inverse_permutation(original: Permutation) -> Permutation:
     inverse = [None for _ in original]
     for i in range(len(original)):
         inverse[original[i]] = i
     return inverse
 
+def inverse_cube(original: CubeRotation) -> CubeRotation:
+    return CubeRotation(
+        face_permutation=inverse_permutation(original.face_permutation),
+        edge_permutation=inverse_permutation(original.edge_permutation),
+        vertex_permutation=inverse_permutation(original.vertex_permutation),
+    )
 
-def chain(perm1, perm2) -> Permutation:
-    result = [None for _ in range(8)]
-    for i in range(8):
+def chain_permutation(perm1, perm2) -> Permutation:
+    result = [None for _ in range(len(perm1))]
+    for i in range(len(perm1)):
         result[i] = perm2[perm1[i]]
     return result
 
 
+def chain_cube(perm1, perm2) -> CubeRotation:
+    return CubeRotation(
+        face_permutation=chain_permutation(perm1.face_permutation, perm2.face_permutation),
+        edge_permutation=chain_permutation(perm1.edge_permutation, perm2.edge_permutation),
+        vertex_permutation=chain_permutation(perm1.vertex_permutation, perm2.vertex_permutation),
+    )
+
+def permute(li: list, perm: Permutation) -> list:
+    result = [None for _ in li]
+    for i, j in enumerate(perm):
+        result[j] = li[i]
+    return result
+
+
 def permute_bitset(bitset: int, perm: Permutation) -> int:
-    bits = [(bitset >> i) % 2 for i in range(8)]
-    permuted_bits = [None for _ in range(8)]
-    for i in range(8):
-        permuted_bits[perm[i]] = bits[i]
-    return sum((1 << i) for i in bits if i)
+    bits = [(bitset >> i) % 2 for i in range(len(perm))]
+    permuted_bits = permute(bits, perm)
+    result = sum((1 << i) for i, bit in enumerate(permuted_bits) if bit)
+    return result
