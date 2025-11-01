@@ -5,7 +5,7 @@
 #include <cstddef>
 
 class GLFWwindow;
-template<class T, unsigned int dim>
+template<class T, size_t dim>
 class Grid;
 
 class MyGLFW {

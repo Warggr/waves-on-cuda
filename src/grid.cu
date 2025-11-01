@@ -3,10 +3,11 @@
 #include <cassert>
 
 template class Grid<double, 2>;
+template class Grid<double, 3>;
 
 using PlainCGrid = double*;
 
-template<class dtype, unsigned int dim>
+template<class dtype, size_t dim>
 Grid<dtype, dim>::Grid(std::array<const std::size_t, dim>&& dimensions):
     _size(std::move(dimensions)),
     GridView<dtype, dim>(nullptr, this->_size)
@@ -18,7 +19,7 @@ Grid<dtype, dim>::Grid(std::array<const std::size_t, dim>&& dimensions):
     reset();
 }
 
-template<class dtype, unsigned int dim>
+template<class dtype, size_t dim>
 Grid<dtype, dim>::~Grid() {
     cudaFree(this->_data);
 }
@@ -29,7 +30,7 @@ void World::synchronize() {
 #endif
 }
 
-template<class dtype, unsigned int dim>
+template<class dtype, size_t dim>
 void Grid<dtype, dim>::reset() {
     memset(this->_data, 0, this->size() * sizeof(dtype));
 }
