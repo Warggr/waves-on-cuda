@@ -21,6 +21,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     }
 
     std::array<Point3D<float>, NB_EDGES> intersect;
+    std::array<float, 3> base = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) };
     for(int i = 0; i < NB_EDGES; i++){
         auto edge = cube_geometry.edge_definition[i];
         double a = v[edge.a],
@@ -28,7 +29,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
         std::array<float, 3> midpoint = { static_cast<float>(edge.x), static_cast<float>(edge.y), static_cast<float>(edge.z) };
         midpoint[edge.changing_dim] = (a - isoLevel) / (a - b);
         std::array<float, 3> midpoint_scale;
-        for(int j = 0; j < 3; j++) midpoint_scale[j] = (x + midpoint[j]) / grid.shape()[j];
+        for(int j = 0; j < 3; j++) midpoint_scale[j] = (base[j] + midpoint[j]) / grid.shape()[j];
         intersect[i] = Point3D(midpoint_scale);
     }
 
@@ -76,12 +77,12 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
 
 std::vector<Triangle<float>> marching_cubes(const Grid<double, 3>& grid, double isoLevel) {
     std::vector<Triangle<float>> out;
-    for(size_t i = 0; i < grid.shape()[0]; i++){
-    	for(size_t j = 0; j < grid.shape()[1]; j++){
-            for(size_t k = 0; k < grid.shape()[2]; k++){
-		marching_cube(i, j, k, isoLevel, grid, out);
-	    }
-	}
+    for(size_t i = 0; i < grid.shape()[0] - 1; i++){
+        for(size_t j = 0; j < grid.shape()[1] - 1; j++){
+            for(size_t k = 0; k < grid.shape()[2] - 1; k++){
+                marching_cube(i, j, k, isoLevel, grid, out);
+            }
+        }
     }
     return out;
 }

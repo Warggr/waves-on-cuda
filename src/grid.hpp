@@ -18,9 +18,11 @@ struct ShapeIterator {
     }
     void operator++() {
         for(unsigned i = 0; i < dimension; i++){
-            _coords[i]++;
-            if(_coords[i] == _size[i]) {
-                _coords[i] = 0;
+            unsigned dim_i = dimension - 1 - i; // Start iterating with the lowest dimension,
+            // for better locality
+            _coords[dim_i]++;
+            if(_coords[dim_i] == _size[dim_i]) {
+                _coords[dim_i] = 0;
             } else {
                 return;
             }
@@ -42,7 +44,7 @@ struct Shape {
     ShapeIterator<dimension> end() const {
         ShapeIterator<dimension> result(shape);
         result.finished = true;
-    return result;
+        return result;
     }
 };
 
@@ -70,11 +72,12 @@ public:
     const dtype* data() const { return _data; }
 
     GridViewIterator<dtype, dimension-1> begin() const;
-    const double* end() const { return { _data + size() }; }
+    const dtype* end() const { return { _data + size() }; }
 
     // Return a copy, because this is a View anyway (no data gets copied)
     GridView<dtype, dimension-1> operator[] (int i) const {
-        return { _data + i*_grid_size_view[0], { _grid_size_view._data + 1 } };
+        const std::size_t subgrid_size = std::reduce(std::next(shape().begin()), shape().end(), 1, std::multiplies<dtype>{});
+        return { _data + i*subgrid_size, { _grid_size_view._data + 1 } };
     }
 
     friend class GridView<dtype, dimension+1>;
