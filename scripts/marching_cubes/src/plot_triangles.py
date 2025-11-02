@@ -92,6 +92,8 @@ def marching_cube(ax, v: list[float], isoLevel: float=0):
         if sign_flip:
             triangle_of_indices = permute(triangle_of_indices, [2, 1, 0])
         triangles.append(triangle_of_indices)
+        for index in triangle_of_indices:
+            assert np.all(0 <= intersect[index]) and np.all(intersect[index] <= 1), (index, intersect)
     if len(triangles) == 0:
         return
     ax.set_title(f'Case {case_ptr._case}, subcase {subcase_ptr.subcase}')

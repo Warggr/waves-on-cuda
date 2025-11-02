@@ -138,12 +138,12 @@ top_points = [(1, 5), (3, 7), (2, 6)]
 add_simple_case(bitmask(1,2,3), Triangulation(top_points, [(0, 1, 2)]) + quadrangle((0,1), (1,5), (2,6), (0,2)), name='5')
 
 # Case 6
-midpoints = (0, 2), (0, 4), (1, 5), (1, 3), (6, 7), (6, 4), (6, 2)
-case62 = Triangulation(midpoints, [(1,2,5), (2,4,5), (2,3,4), (3,6,4), (3,0,6)])
+midpoints = (0, 2), (0, 4), (1, 5), (1, 3), (6, 7), (7, 3), (7, 5)
+case62 = Triangulation(midpoints, [(1,2,6), (1,6,4), (0,1,4), (0,4,3), (3,4,5)])
 _, subcase_62 = add_subcase(None, case62)
 add_case(bitmask(7,1,0), tests=[face_containing_corners(1, 3, 5, 7), CENTER_TEST], subcases=[
     add_subcase(0, Triangulation(midpoints, [(0, 1, 2), (0, 2, 3), (4, 5, 6)])),
-    add_subcase(1, case62 + quadrangle(midpoints[0], midpoints[6], midpoints[5], midpoints[1])),
+    add_subcase(1, case62 + quadrangle(midpoints[2], midpoints[3], midpoints[5], midpoints[6])),
     (2, subcase_62), (3, subcase_62),
 ])
 
