@@ -10,7 +10,7 @@
         await pyodide.loadPackage('micropip');
         const micropip = pyodide.pyimport('micropip');
         await micropip.install([
-          "/dist/marching_cubes-0.1.0-py3-none-any.whl",
+          "../dist/marching_cubes-0.1.0-py3-none-any.whl",
         ]);
         pyodide.runPythonAsync(`
           from src.plot_triangles import interactive_plot
