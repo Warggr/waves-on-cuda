@@ -75,7 +75,7 @@ def c_init(value, indent=0) -> str:
 
 
 def get_c_lib(**kwargs):
-    env = Environment(loader=FileSystemLoader(Path(__file__).parent), trim_blocks=True, lstrip_blocks=True)
+    env = Environment(loader=FileSystemLoader(Path(__file__).parent.parent), trim_blocks=True, lstrip_blocks=True)
     env.globals['c_init'] = c_init
     template = env.get_template("cache.cpp.jinja")
     output = template.render(**kwargs)
@@ -84,12 +84,12 @@ def get_c_lib(**kwargs):
 
 def get_c_header():
     output = ["#pragma once", "#include <array>"]
-    import structures
+    from . import structures
 
     for symbol, obj in vars(structures).items():
         if symbol.startswith('__') or str(type(obj)) == "<class 'module'>":
             continue
-        if hasattr(obj, '__module__') and obj.__module__ != "structures":
+        if hasattr(obj, '__module__') and not obj.__module__.endswith("structures"):
             continue
         if type(obj) in (int, float):
             output.append(f"constexpr {type(obj).__name__} {symbol} = {obj};")
@@ -101,7 +101,7 @@ def get_c_header():
 
 if __name__ == "__main__":
     import argparse
-    from rotations import cube_geometry as get_cube_geometry
+    from .rotations import cube_geometry as get_cube_geometry
 
     parser = argparse.ArgumentParser()
     parser.add_argument("what", choices=["h", "c"])
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         out_default_filename = Path("generated") / "cache.h"
 
     else:
-        from lookup_tables import lookup_table
+        from .lookup_tables import lookup_table
 
         cube_geometry = get_cube_geometry()
 

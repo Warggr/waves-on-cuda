@@ -1,10 +1,11 @@
 # coding: utf-8
 import numpy as np
 from scipy.spatial.transform import Rotation
-from structures import NB_EDGES, NB_FACES, NB_VERTICES, CubeGeometry, CubeRotation, EdgeDef
 from typing import Generator, Sequence, TypeAlias
 from itertools import product
 from functools import cache
+
+from .structures import NB_EDGES, NB_FACES, NB_VERTICES, CubeGeometry, CubeRotation, EdgeDef
 
 Permutation = list[int]
 

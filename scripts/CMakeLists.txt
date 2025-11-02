@@ -1,13 +1,15 @@
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/marching_cubes_cache.hpp"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/structures.py"
-    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" h -o "${CMAKE_CURRENT_BINARY_DIR}/generated/marching_cubes_cache.hpp"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes/src/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes/src/structures.py"
+    COMMAND python -m "src.codegen" h -o "${CMAKE_CURRENT_BINARY_DIR}/generated/marching_cubes_cache.hpp"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes"
 )
 
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/cache.cpp"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/cache.cpp.jinja" "${CMAKE_CURRENT_SOURCE_DIR}/structures.py"
-    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/codegen.py" c -o "${CMAKE_CURRENT_BINARY_DIR}/generated/cache.cpp"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes/src/codegen.py" "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes/cache.cpp.jinja" "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes/src/structures.py"
+    COMMAND python -m "src.codegen" c -o "${CMAKE_CURRENT_BINARY_DIR}/generated/cache.cpp"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/marching_cubes"
 )
 
 add_custom_target(generate_cache ALL

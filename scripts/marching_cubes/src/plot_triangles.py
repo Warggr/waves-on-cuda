@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Slider, Button
 
-from lookup_tables import CENTER_EDGEINDEX, EdgeIndex, Midpoint, lookup_table
-from rotations import Point3D, cube_geometry, index_to_corner, bits_to_int, index_to_edge, int_to_bits, permute
-from structures import NB_VERTICES, NB_EDGES
+from .lookup_tables import CENTER_EDGEINDEX, EdgeIndex, Midpoint, lookup_table
+from .rotations import Point3D, cube_geometry, index_to_corner, bits_to_int, index_to_edge, int_to_bits, permute
+from .structures import NB_VERTICES, NB_EDGES
 
 index_to_corner = np.array(index_to_corner())
 
@@ -131,8 +131,7 @@ def slider_panel(
     return sliders
 
 
-if __name__ == "__main__":
-    """
+def plot_all_subcases():
     fig, axes = plt.subplots(3, 11, subplot_kw=dict(projection='3d'))
     axes = axes.flatten()
 
@@ -141,8 +140,8 @@ if __name__ == "__main__":
         draw_triangles(ax, subcase.triangles)
 
     plt.show()
-    """
 
+def interactive_plot():
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     fig.subplots_adjust(left=0.4)
@@ -175,3 +174,6 @@ if __name__ == "__main__":
     button.on_clicked(next_pattern)
 
     plt.show()
+
+if __name__ == "__main__":
+    interactive_plot()

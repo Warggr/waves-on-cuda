@@ -2,7 +2,7 @@ from itertools import pairwise
 from typing import Generic, Literal, Self, Sequence, TypeAlias, TypeVar
 from dataclasses import dataclass
 
-from rotations import (
+from .rotations import (
     chain_cube,
     edge_vertex_adjacency,
     face_containing_corners,
@@ -12,7 +12,7 @@ from rotations import (
     inverse_cube,
     permute_bitset,
 )
-from structures import Case, CasePtr, EdgeDef, LookupTable, Subcase, SubcasePtr
+from .structures import Case, CasePtr, EdgeDef, LookupTable, Subcase, SubcasePtr
 
 T = TypeVar('T')
 

@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+      <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+  </head>
+  <body>
+    <script type="text/javascript">
+      async function main(){
+        let pyodide = await loadPyodide();
+        await pyodide.loadPackage('micropip');
+        const micropip = pyodide.pyimport('micropip');
+        await micropip.install([
+          "/dist/marching_cubes-0.1.0-py3-none-any.whl",
+        ]);
+        pyodide.runPythonAsync(`
+          from src.plot_triangles import interactive_plot
+          interactive_plot()
+        `)
+      }
+      main();
+    </script>
+  </body>
+</html>
