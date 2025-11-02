@@ -15,13 +15,13 @@ std::array<d, size> permute(std::array<d, size> original, std::array<idx_t, size
 
 void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& grid, std::vector<Triangle<float>>& out){
     // Fetch 8 corner values
-    std::array<float, 8> v;
-    for(int i = 0; i < 8; i++){
-        v[i] = grid[x + (i&1)][y + ((i>>1)&1)][z + ((i>>2)&1)];
+    std::array<float, NB_VERTICES> v;
+    for(int i = 0; i < NB_VERTICES; i++){
+        v[i] = grid[z + ((i>>2)&1)][y + ((i>>1)&1)][x + (i&1)];
     }
 
     std::array<Point3D<float>, NB_EDGES> intersect;
-    std::array<float, 3> base = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) };
+    std::array<float, 3> base = { static_cast<float>(z), static_cast<float>(y), static_cast<float>(x) };
     for(int i = 0; i < NB_EDGES; i++){
         auto edge = cube_geometry.edge_definition[i];
         double a = v[edge.a],
@@ -29,7 +29,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
         std::array<float, 3> midpoint = { static_cast<float>(edge.x), static_cast<float>(edge.y), static_cast<float>(edge.z) };
         midpoint[edge.changing_dim] = (a - isoLevel) / (a - b);
         std::array<float, 3> midpoint_scale;
-        for(int j = 0; j < 3; j++) midpoint_scale[j] = (base[j] + midpoint[j]) / grid.shape()[j];
+        for(int j = 0; j < 3; j++) midpoint_scale[j] = (base[j] + midpoint[j]) / (grid.shape()[j] - 1);
         intersect[i] = Point3D(midpoint_scale);
     }
 

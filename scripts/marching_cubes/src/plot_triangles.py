@@ -60,7 +60,8 @@ def marching_cube(ax, v: list[float], isoLevel: float=0):
         edge = cube_geometry().edge_definition[i]
         a, b = v[edge.a], v[edge.b]
         midpoint = [edge.x, edge.y, edge.z]
-        midpoint[edge.changing_dim] = (a - isoLevel) / (a - b)
+        if a != b:
+            midpoint[edge.changing_dim] = (a - isoLevel) / (a - b)
         intersect.append(midpoint)
     case_ptr = lookup_table.case_table[index_]
     intersect = permute(intersect, cube_geometry().all_permutations[case_ptr.permutation].edge_permutation)
