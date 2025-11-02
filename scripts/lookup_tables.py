@@ -87,8 +87,10 @@ all_cases: list[tuple[int, Case]] = []
 all_subcases: list[Subcase] = []
 subcase_by_name: dict[str, Triangulation] = {}
 
+CENTER_EDGEINDEX = 12
+
 edges_by_name: dict[Midpoint, EdgeIndex] = edge_vertex_adjacency()
-edges_by_name['center'] = 12
+edges_by_name['center'] = CENTER_EDGEINDEX
 
 def add_subcase(test_bits: int, triangulation: Triangulation[Midpoint], name=None) -> tuple[int, int]:
     triangles = [ tuple(edges_by_name[corner] for corner in triangle) for triangle in triangulation.get_triangles()]

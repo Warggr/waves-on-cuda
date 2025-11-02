@@ -189,8 +189,14 @@ def permute(li: list, perm: Permutation) -> list:
     return result
 
 
+def int_to_bits(bitset: int, size: int = 8) -> list[int]:
+    return [(bitset >> i) % 2 for i in range(size)]
+
+def bits_to_int(bits: list[int]) -> int:
+    return sum((1 << i) for i, bit in enumerate(bits) if bit)
+
 def permute_bitset(bitset: int, perm: Permutation) -> int:
-    bits = [(bitset >> i) % 2 for i in range(len(perm))]
+    bits = int_to_bits(bitset, size=len(perm))
     permuted_bits = permute(bits, perm)
-    result = sum((1 << i) for i, bit in enumerate(permuted_bits) if bit)
+    result = bits_to_int(permuted_bits)
     return result
