@@ -54,7 +54,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
                   b = v[cube_geometry.adjacency[side][1]],
                   c = v[cube_geometry.adjacency[side][2]],
                   d = v[cube_geometry.adjacency[side][3]];
-            test += ((a*c - b*d) > 0) ? (1 << i) : 0;
+            test += ((a*c - b*d) > isoLevel) ? (1 << i) : 0;
         }
     }
     const auto& subcase_ptr = _case.subcases[test];
