@@ -2,18 +2,53 @@
 <html>
   <head>
       <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+      <meta property="og:title" content="Marching Cubes Visualization"/>
   </head>
   <body>
+    <div id="checklist">
+    </div>
     <script type="text/javascript">
+      const checklist = document.getElementById('checklist');
+      function error(msg) {
+        let err_msg = document.createElement('h2');
+        err_msg.textContent = msg;
+        checklist.appendChild(err_msg);
+      }
+
+      async function wait_and_report(text, promise){
+        const status = document.createElement('span');
+        const status_line = document.createElement('p');
+        status_line.textContent = text + "...";
+        status_line.appendChild(status);
+        checklist.appendChild(status_line);
+        return await promise
+          .then(result => { status.textContent = "done"; return result; })
+          .catch(err => {
+            status.textContent = "failed";
+            error(err);
+            throw err;
+          })
+        ;
+      }
       async function main(){
-        let pyodide = await loadPyodide();
-        await pyodide.loadPackage('micropip');
-        const micropip = pyodide.pyimport('micropip');
-        await micropip.install([
+        if(typeof WebAssembly !== "object") {
+          error("Your browser does not support WebAssembly!");
+          return;
+        }
+
+        let pyodide = await wait_and_report("Loading Pyodide", loadPyodide());
+        await wait_and_report("Loading Micropip", pyodide.loadPackage('micropip'));
+        const micropip = await wait_and_report("Importing micropip", new Promise((res, rej) => {
+          res(pyodide.pyimport('micropip'));
+        }));
+        await wait_and_report("Loading code", micropip.install([
           "../dist/marching_cubes-0.1.0-py3-none-any.whl",
-        ]);
-        pyodide.runPythonAsync(`
+        ]));
+        await wait_and_report("Importing code", pyodide.runPythonAsync(`
           from src.plot_triangles import interactive_plot
+        `));
+        checklist.parentNode.removeChild(checklist);
+	      await pyodide.runPythonAsync(`
           interactive_plot()
         `)
       }
