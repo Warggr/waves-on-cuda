@@ -91,6 +91,7 @@ protected:
     GridView(dtype* data, const ArrayView<const size_t, 1>& grid_size): _data(data), _size(grid_size[0]) {};
 public:
     dtype* begin() const { return _data; }
+    dtype* data() const { return _data; }
     dtype* end() const { return _data + _size; }
     std::size_t size() const { return _size; }
     dtype& operator[] (int i) {

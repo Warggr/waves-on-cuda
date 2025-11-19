@@ -1,6 +1,7 @@
 #include "marching_cubes.hpp"
 #include "grid.hpp"
 #include "generated/marching_cubes_cache.hpp"
+#include "timing.hpp"
 
 using std::size_t;
 
@@ -12,6 +13,11 @@ std::array<d, size> permute(std::array<d, size> original, std::array<idx_t, size
     }
     return result;
 }
+
+namespace waves_on_cuda::marching_cubes {
+
+using geometry::Triangle;
+using geometry::Point3D;
 
 void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& grid, std::vector<Triangle<float>>& out){
     // Fetch 8 corner values
@@ -77,12 +83,22 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
 
 std::vector<Triangle<float>> marching_cubes(const Grid<double, 3>& grid, double isoLevel) {
     std::vector<Triangle<float>> out;
-    for(size_t i = 0; i < grid.shape()[0] - 1; i++){
-        for(size_t j = 0; j < grid.shape()[1] - 1; j++){
-            for(size_t k = 0; k < grid.shape()[2] - 1; k++){
-                marching_cube(i, j, k, isoLevel, grid, out);
+    {
+#ifdef TIMING
+        ScopeTimer s;
+        for(int i = 0; i < 1000; i++)
+#endif
+        {
+            for(size_t i = 0; i < grid.shape()[0] - 1; i++){
+                for(size_t j = 0; j < grid.shape()[1] - 1; j++){
+                    for(size_t k = 0; k < grid.shape()[2] - 1; k++){
+                        marching_cube(i, j, k, isoLevel, grid, out);
+                    }
+                }
             }
         }
     }
     return out;
+}
+
 }
