@@ -1,6 +1,8 @@
 # coding: utf-8
-from typing import Callable
+import itertools
+from typing import Callable, Sequence
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from matplotlib.widgets import Slider, Button
 
@@ -70,7 +72,7 @@ def interior_test(v: list[float]) -> bool:
     return False
 
 
-def marching_cube(ax, v: list[float], isoLevel: float=0):
+def get_marching_cube_triangles(v: list[float], isoLevel: float=0) -> tuple[np.ndarray, list[tuple[int, int, int]], str, str]:
     bits = [(vi > isoLevel) for vi in v]
     index_ = bits_to_int(bits)
     intersect = []
@@ -113,9 +115,12 @@ def marching_cube(ax, v: list[float], isoLevel: float=0):
         triangles.append(triangle_of_indices)
         for index in triangle_of_indices:
             assert np.all(0 <= intersect[index]) and np.all(intersect[index] <= 1), (index, intersect)
-    if len(triangles) == 0:
-        return
-    ax.set_title(f'Case {case_ptr._case}, subcase {subcase_ptr.subcase}')
+    return intersect, triangles, f'Case {case_ptr._case}', f'subcase {subcase_ptr.subcase}'
+
+
+def plot_marching_cube(ax: Axes3D, v: list[float], isoLevel: float = 0) -> None:
+    intersect, triangles, case, subcase = get_marching_cube_triangles(v, isoLevel=isoLevel)
+    ax.set_title(f'{case}, {subcase}')
     ax.plot_trisurf(
         intersect[:, 0], intersect[:, 1], intersect[:, 2],
         triangles=triangles,
@@ -152,6 +157,42 @@ def slider_panel(
     return sliders
 
 
+def plot_trilinear(ax, v: list[float], isoLevel: float = 0,
+    nx=9,
+    ny=9,
+    nz=9,
+):
+    x = np.linspace(0, 1, nx+1)
+    y = np.linspace(0, 1, ny+1)
+    z = np.linspace(0, 1, nz+1)
+    X, Y, Z = np.meshgrid(x, y, z)
+    # Compute trilinear interpolant
+    F = (
+        v[0]*(1-X)*(1-Y)*(1-Z) +
+        v[4]*X*(1-Y)*(1-Z) +
+        v[2]*(1-X)*Y*(1-Z) +
+        v[6]*X*Y*(1-Z) +
+        v[1]*(1-X)*(1-Y)*Z +
+        v[5]*X*(1-Y)*Z +
+        v[3]*(1-X)*Y*Z +
+        v[7]*X*Y*Z
+    )
+    for i in range(nx):
+        for j in range(ny):
+            for k in range(nz):
+                v = [F[i+di, j+dj, k+dk] for di, dj, dk in itertools.product((0,1), repeat=3)]
+                intersect, triangles, _, _ = get_marching_cube_triangles(v, isoLevel=isoLevel)
+                if len(triangles) == 0:
+                    continue
+                ax.plot_trisurf(
+                    (intersect[:, 0] + i) / (nx+1),
+                    (intersect[:, 1] + j) / (ny+1),
+                    (intersect[:, 2] + k) / (nz+1),
+                    triangles=triangles,
+                    color="b",
+                )
+
+
 def plot_all_subcases():
     fig, axes = plt.subplots(3, 11, subplot_kw=dict(projection='3d'))
     axes = axes.flatten()
@@ -162,19 +203,21 @@ def plot_all_subcases():
 
     plt.show()
 
-def interactive_plot():
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+
+def interactive_plot(plot_functions: Sequence[Callable[[Axes3D, list[float], float], None]] = [plot_marching_cube, plot_trilinear]):
+    fig, axes = plt.subplots(1, len(plot_functions), subplot_kw=dict(projection='3d'))
+    axes = axes.flatten()
     fig.subplots_adjust(left=0.4)
 
     initial_v = np.zeros(NB_VERTICES)
 
     def update(i, val):
         initial_v[i] = val
-        ax.clear()
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.set_zlim(0, 1)
-        draw_cube(ax, initial_v)
-        marching_cube(ax, initial_v)
+        for ax, plotter in zip(axes, plot_functions):
+            ax.clear()
+            ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.set_zlim(0, 1)
+            draw_cube(ax, initial_v)
+            plotter(ax, initial_v, 0)
         fig.canvas.draw_idle()
 
     sliders = slider_panel(fig, NB_VERTICES, vmin=-1, vmax=1, initial=initial_v, on_change=update)
