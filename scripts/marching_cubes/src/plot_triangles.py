@@ -52,6 +52,24 @@ def draw_triangles(ax, ts: list[tuple[EdgeIndex, EdgeIndex, EdgeIndex]]):
     )
 
 
+def interior_test(v: list[float]) -> bool:
+    """Interior test between vertices 1 and 7."""
+    a0, d0, b0, c0, a1, d1, b1, c1 = v
+    a = (a1-a0)*(c1-c0) - (b1-b0)*(d1-d0)
+    b = c0*(a1-a0) + a0*(c1-c0) - d0*(b1-b0) - b0*(d1-d0)
+    # c = a0*c0 - b0*d0
+    if a >= 0:
+        t = -0.5*b/a
+        if 0 <= t and t <= 1:
+            At = a0 + t*(a1 - a0)
+            Bt = b0 + t*(b1 - b0)
+            Ct = c0 + t*(c1 - c0)
+            Dt = d0 + t*(d1 - d0)
+            if (Ct > 0) == (At > 0) and (At*Ct - Bt*Dt > 0):
+                return ((At > 0) == (a0 > 0)) or ((Ct > 0) == (c0 > 0));
+    return False
+
+
 def marching_cube(ax, v: list[float], isoLevel: float=0):
     bits = [(vi > isoLevel) for vi in v]
     index_ = bits_to_int(bits)
@@ -73,7 +91,7 @@ def marching_cube(ax, v: list[float], isoLevel: float=0):
     for i in range(case.num_tests):
         side = case.tests[i]
         if side == 6:
-            test += 1 if True else 0 # TODO
+            test += (1 << i) if interior_test(v) else 0
         else:
             a = v[cube_geometry().adjacency[side][0]]
             b = v[cube_geometry().adjacency[side][1]]

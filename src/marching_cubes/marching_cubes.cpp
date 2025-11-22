@@ -19,6 +19,27 @@ namespace waves_on_cuda::marching_cubes {
 using geometry::Triangle;
 using geometry::Point3D;
 
+// Interior test between vertices 1 and 7.
+bool interior_test(const std::array<float, NB_VERTICES>& v){
+    const auto [a0, d0, b0, c0, a1, d1, b1, c1] = v;
+    float a = (a1-a0)*(c1-c0) - (b1-b0)*(d1-d0);
+    float b = c0*(a1-a0) + a0*(c1-c0) - d0*(b1-b0) - b0*(d1-d0);
+    //float c = a0*c0 - b0*d0;
+    if(a >= 0){
+        float t = -0.5*b/a;
+        if(0 <= t && t <= 1){
+            float At = a0 + t*(a1 - a0),
+                  Bt = b0 + t*(b1 - b0),
+                  Ct = c0 + t*(c1 - c0),
+                  Dt = d0 + t*(d1 - d0);
+            if((Ct > 0) == (At > 0) && At*Ct - Bt*Dt > 0){
+                return ((At > 0) == (a0 > 0)) || ((Ct > 0) == (c0 > 0));
+            }
+        }
+    }
+    return false;
+}
+
 void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& grid, std::vector<Triangle<float>>& out){
     // Fetch 8 corner values
     std::array<float, NB_VERTICES> v;
@@ -54,7 +75,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     for(int i = 0; i<_case.num_tests; i++){
         int side = _case.tests[i];
         if(side == 6){
-            test += (true ? 1 : 0); // TODO
+            test += (interior_test(v) ? (1 << i) : 0);
         } else {
             float a = v[cube_geometry.adjacency[side][0]],
                   b = v[cube_geometry.adjacency[side][1]],

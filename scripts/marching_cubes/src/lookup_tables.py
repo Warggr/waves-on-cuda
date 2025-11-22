@@ -121,9 +121,10 @@ add_simple_case(bitmask(0, 1),
 )
 
 # Case 3
-add_case(bitmask(0,5), tests=[face_containing_corners(0, 1, 4, 5)], subcases=[
-    add_subcase(0, corner(0) + corner(5), '3a'),
-    add_subcase(1, quadrangle((0, 2), (0, 4), (4, 5), (5, 7)) + quadrangle((5, 7), (1, 5), (0, 1), (0, 2)), '3b'),
+# Rotated so that it'a precursor to case 7.
+add_case(bitmask(2,4), tests=[face_containing_corners(2,4)], subcases=[
+    add_subcase(0, corner(2) + corner(4), '3a'),
+    add_subcase(1, quadrangle((2, 3), (2, 6), (6, 4), (4, 5)) + quadrangle((4, 5), (4, 0), (0, 2), (2, 3)), '3b'),
 ])
 
 # Case 4
@@ -148,13 +149,15 @@ add_case(bitmask(7,1,0), tests=[face_containing_corners(1, 3, 5, 7), CENTER_TEST
 ])
 
 # Case 7
-big_surface_edges=[(2,0), (0,4), (4,5), (5,7), (7,3), (3,2)]
+# Rotated so that the center test is still 0-7
+big_surface_edges=[(3,2), (2,6), (6,4), (4,5), (5,1), (1,3)]
 big_surface = Triangulation(big_surface_edges, triangles=[(0,1,2),(2,3,4),(4,5,0),(0,2,4)])
-# The corners of the three corner triangles, in a specific order.
+# The corners of the three corner triangles, anticlockwise,
+# with the edge to the center triangle first.
 corners = [
-    ((1,0),(0,2),(0,4)),
-    ((1,5),(5,4),(5,7)),
-    ((1,3),(3,7),(3,2)),
+    ((0,2),(2,3),(2,6)),
+    ((0,4),(4,6),(4,5)),
+    ((0,1),(1,5),(1,3)),
 ]
 case742 = Triangulation.empty()
 for this_triangle, next_triangle in cyclic_pairwise(corners):
@@ -163,15 +166,15 @@ for this_triangle, next_triangle in cyclic_pairwise(corners):
 subcases=[
     add_subcase(None, subcase_by_name['3a'] + corner(3), '7a'),
     add_subcase(None, subcase_by_name['3b'] + corner(3), '7b'),
-    add_subcase(None, center_surface((0,1), (1,5), (1,3), (2,3), (3,7), (7,5), (5,4), (0,4), (0,2)), '7c'),
+    add_subcase(None, center_surface((2,0), (0,4), (0,1), (3,1), (1,5), (5,4), (4,6), (2,6), (2,3)), '7c'),
 ]
-add_case(bitmask(0,3,5),
-    tests=[face_containing_corners(0,1,4,5), face_containing_corners(3,1,7,5), face_containing_corners(0,1,2,3), CENTER_TEST],
+add_case(bitmask(2,1,4),
+    tests=[face_containing_corners(2,0,6,4), face_containing_corners(1,0,5,4), face_containing_corners(0,1,2,3), CENTER_TEST],
     subcases=[
         (bitmask(), subcases[0][1]), (bitmask(3), subcases[0][1]),
         (bitmask(0), subcases[1][1]), (bitmask(0,3), subcases[1][1]),
         (bitmask(0,1), subcases[2][1]), (bitmask(0,1,3), subcases[2][1]),
-        add_subcase(bitmask(0,1,2), big_surface + corner(1), '7d'),
+        add_subcase(bitmask(0,1,2), big_surface + corner(0), '7d'),
         add_subcase(bitmask(0,1,2,3), case742, '7e'),
     ]
 )
@@ -221,10 +224,10 @@ IMPOSSIBLE = 255
 
 # Case 13
 center_independent_subcases = [
-    add_subcase(bitmask(), subcase_by_name['7a'] + corner(6)),
-    add_subcase(bitmask(2), subcase_by_name['7b'] + corner(6)),
-    add_subcase(bitmask(2,5), subcase_by_name['7c'] + corner(6)),
-    add_subcase(bitmask(1,4,3), center_surface((0,1),(0,4),(4,6),(4,5),(5,1),(5,7),(7,6),(7,3),(3,1),(3,2),(2,6), (0,2))),
+    add_subcase(bitmask(), subcase_by_name['7a'] + corner(7)),
+    add_subcase(bitmask(4), subcase_by_name['7b'] + corner(7)),
+    add_subcase(bitmask(4,2), subcase_by_name['7c'] + corner(7)),
+    add_subcase(bitmask(1,2,4), center_surface((2,0),(2,6),(6,7),(6,4),(4,0),(4,5),(5,7),(5,1),(1,0),(1,3),(3,7), (2,3))),
     (bitmask(0,1), IMPOSSIBLE),
     # The reverse case is also necessary because there are two chiral three-face strips with regards to the 1s and 0s
     (bitmask(0,1,2), IMPOSSIBLE), (bitmask(3,4,5), IMPOSSIBLE),
@@ -234,10 +237,10 @@ for bitset, subcase in center_independent_subcases:
     subcases.append((bitset, subcase))
     subcases.append((bitset|(1 << 6), subcase))
 subcases += [
-    add_subcase(bitmask(0,2,5), subcase_by_name['7d'] + corner(6)),
-    add_subcase(bitmask(0,2,5,6), subcase_by_name['7e'] + corner(6)),
+    add_subcase(bitmask(0,4,2), subcase_by_name['7e'] + corner(6)),
+    add_subcase(bitmask(0,4,2,6), subcase_by_name['7d'] + corner(6)),
 ]
-add_case(bitmask(0,3,5,6), tests=[
+add_case(bitmask(2,1,4,7), tests=[
     *range(6), # All cubes faces, in the order bottom-up-front-back-left-right
     CENTER_TEST
 ], subcases=subcases)
