@@ -9,11 +9,11 @@ class GridViewIterator;
 
 template<size_t dimension>
 struct ShapeIterator {
-    const ArrayView<const size_t, dimension>& _size;
+    const ArrayView<size_t, dimension>& _size;
     std::array<size_t, dimension> _coords;
     bool finished = false;
 
-    ShapeIterator(const ArrayView<const size_t, dimension>& size): _size(size) {
+    ShapeIterator(const ArrayView<size_t, dimension>& size): _size(size) {
         for(unsigned i = 0; i < dimension; i++) _coords[i] = 0;
     }
     void operator++() {
@@ -37,7 +37,7 @@ struct ShapeIterator {
 
 template<size_t dimension>
 struct Shape {
-    const ArrayView<const size_t, dimension>& shape;
+    const ArrayView<size_t, dimension>& shape;
     ShapeIterator<dimension> begin() const {
         return ShapeIterator(shape);
     }
@@ -52,11 +52,11 @@ template<class dtype, size_t dimension>
 class GridView {
 protected:
     dtype* _data;
-    const ArrayView<const size_t, dimension> _grid_size_view;
-    GridView(dtype* data, const ArrayView<const size_t, dimension>& grid_size): _data(data), _grid_size_view(grid_size) {};
+    const ArrayView<size_t, dimension> _grid_size_view;
+    GridView(dtype* data, const ArrayView<size_t, dimension>& grid_size): _data(data), _grid_size_view(grid_size) {};
 public:
-    GridView(dtype* data, const std::array<const size_t, dimension>& grid_size):
-        GridView(data, ArrayView<const size_t, dimension>{ grid_size.data() }) {}
+    GridView(dtype* data, const std::array<size_t, dimension>& grid_size):
+        GridView(data, ArrayView<size_t, dimension>{ const_cast<size_t*>(grid_size.data()) }) {}
 
     std::size_t size() const {
         return std::reduce(
@@ -65,7 +65,7 @@ public:
             std::multiplies<dtype>{}
         );
     }
-    const ArrayView<const size_t, dimension>& shape() const { return _grid_size_view; }
+    const ArrayView<size_t, dimension>& shape() const { return _grid_size_view; }
     Shape<dimension> indices() const { return Shape(_grid_size_view); }
 
     dtype* data() { return _data; }
@@ -88,7 +88,7 @@ class GridView<dtype, 1>{
 protected:
     dtype* _data;
     std::size_t _size;
-    GridView(dtype* data, const ArrayView<const size_t, 1>& grid_size): _data(data), _size(grid_size[0]) {};
+    GridView(dtype* data, const ArrayView<size_t, 1>& grid_size): _data(data), _size(grid_size[0]) {};
 public:
     dtype* begin() const { return _data; }
     dtype* data() const { return _data; }
@@ -106,7 +106,7 @@ public:
 
 template<class dtype, size_t dimension>
 struct GridViewIterator: public GridView<dtype, dimension> {
-    GridViewIterator(dtype* data, const ArrayView<const size_t, dimension>& grid_size): GridView<dtype, dimension>(data, grid_size) {};
+    GridViewIterator(dtype* data, const ArrayView<size_t, dimension>& grid_size): GridView<dtype, dimension>(data, grid_size) {};
     void operator++() { this->_data += this->size(); }
     bool operator!=(const GridViewIterator& other) const { return this->_data != other._data; }
     // to compare with end()
@@ -121,9 +121,9 @@ GridViewIterator<dtype, dimension-1> GridView<dtype, dimension>::begin() const {
 
 template<class dtype, size_t dimension>
 class Grid: public GridView<dtype, dimension> {
-    std::array<const size_t, dimension> _size;
+    const std::array<size_t, dimension> _size;
 public:
-    Grid(std::array<const size_t, dimension>&& dimensions);
+    Grid(std::array<size_t, dimension> dimensions);
     ~Grid();
     void reset();
 };

@@ -8,7 +8,7 @@ template class Grid<double, 3>;
 using PlainCGrid = double*;
 
 template<class dtype, size_t dim>
-Grid<dtype, dim>::Grid(std::array<const std::size_t, dim>&& dimensions):
+Grid<dtype, dim>::Grid(std::array<std::size_t, dim> dimensions):
     _size(std::move(dimensions)),
     GridView<dtype, dim>(nullptr, this->_size)
 {
