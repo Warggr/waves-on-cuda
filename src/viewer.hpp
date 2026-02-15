@@ -36,7 +36,7 @@ public:
             if(grid_to_render != nullptr) {
                 std::lock_guard guard(mutex);
                 if(grid_to_render != nullptr){ // Double checked locking
-                    renderer.set_grid(grid_to_render);
+                    renderer.set_grid(*grid_to_render);
                 }
             }
             renderer.render();

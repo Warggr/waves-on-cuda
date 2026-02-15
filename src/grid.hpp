@@ -62,7 +62,7 @@ public:
         return std::reduce(
             shape().begin(), shape().end(),
             1,
-            std::multiplies<dtype>{}
+            std::multiplies<std::size_t>{}
         );
     }
     const ArrayView<size_t, dimension>& shape() const { return _grid_size_view; }
@@ -76,7 +76,7 @@ public:
 
     // Return a copy, because this is a View anyway (no data gets copied)
     GridView<dtype, dimension-1> operator[] (int i) const {
-        const std::size_t subgrid_size = std::reduce(std::next(shape().begin()), shape().end(), 1, std::multiplies<dtype>{});
+        const std::size_t subgrid_size = std::reduce(std::next(shape().begin()), shape().end(), 1, std::multiplies<std::size_t>{});
         return { _data + i*subgrid_size, { _grid_size_view._data + 1 } };
     }
 
