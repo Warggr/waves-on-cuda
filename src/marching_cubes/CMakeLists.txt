@@ -1,8 +1,8 @@
-set(WHICH_MC33 CACHE STRING "Which MC33 library to use")
+set(WHICH_MC33 "Which MC33 library to use" CACHE STRING "Own")
 set_property(CACHE MC33 PROPERTY STRINGS
-	"Native"
-	"D.Vega"
-	"L.Custodio"
+	"Own"
+	"DVega"
+	"LCustodio"
 )
 
 if(NOT WHICH_MC33 STREQUAL "")
@@ -15,7 +15,7 @@ target_link_libraries(_3dviewer viewer)
 # For things like -O3 and -g
 get_target_property(C_FLAGS viewer COMPILE_OPTIONS)
 
-if(WHICH_MC33 STREQUAL "D.Vega")
+if(WHICH_MC33 STREQUAL "DVega")
 	include(ExternalProject)
 	ExternalProject_Add(
 		mc33_DVega
@@ -32,8 +32,7 @@ if(WHICH_MC33 STREQUAL "D.Vega")
 	target_link_libraries(MC33.DVega PRIVATE ${source_dir}/libMC33.a)
 	target_include_directories(MC33.DVega PRIVATE ${source_dir})
 	target_include_directories(MC33.DVega PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "..") # for grid.hpp
-	target_link_libraries(_3dviewer MC33.DVega)
-elseif(WHICH_MC33 STREQUAL "L.Custodio")
+elseif(WHICH_MC33 STREQUAL "LCustodio")
 	include(FetchContent)
 	FetchContent_Declare(
 		ModifiedMC33
@@ -51,12 +50,20 @@ elseif(WHICH_MC33 STREQUAL "L.Custodio")
 	add_library(MC33.LCustodio wrappers/lcustodio.cpp)
 	target_include_directories(MC33.LCustodio PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "..") # for grid.hpp
 	target_link_libraries(MC33.LCustodio PRIVATE ModifiedMC33Lib)
-	target_link_libraries(_3dviewer MC33.LCustodio)
-elseif(WHICH_MC33 STREQUAL "")
-	add_library(MC33 marching_cubes.cpp)
-	target_link_libraries(MC33 viewer)
-	target_link_libraries(MC33 marching_cubes_constants)
-	target_link_libraries(_3dviewer MC33)
+elseif(WHICH_MC33 STREQUAL "Own")
+    add_library(MC33.Own marching_cubes.cpp)
+	target_link_libraries(MC33.Own viewer)
+	target_link_libraries(MC33.Own marching_cubes_constants)
 else()
 	message(FATAL_ERROR "Error: invalid $$WHICH_MC33")
+endif()
+
+add_library(mc_renderer INTERFACE)
+target_link_libraries(mc_renderer INTERFACE "MC33.${WHICH_MC33}")
+
+target_link_libraries(_3dviewer "MC33.${WHICH_MC33}")
+
+option(TIMING "Time marching cubes." off)
+if(TIMING)
+    target_compile_definitions("MC33.${WHICH_MC33}" PRIVATE TIMING)
 endif()

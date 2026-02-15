@@ -8,7 +8,7 @@ using Triangle = geometry::Triangle<float>;
 class Renderer3D: public MyGLFW {
     float isoLevel;
 public:
-    Renderer3D(float isoLevel): isoLevel(isoLevel) {
+    Renderer3D(float isoLevel = 0.5): isoLevel(isoLevel) {
     }
     void set_grid(const Grid<double, 3>& grid) {
         std::vector<Triangle> triangles = marching_cubes(grid, isoLevel);

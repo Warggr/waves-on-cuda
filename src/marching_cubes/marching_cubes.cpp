@@ -1,7 +1,9 @@
 #include "marching_cubes.hpp"
 #include "grid.hpp"
 #include "generated/marching_cubes_cache.hpp"
+#ifdef TIMING
 #include "timing.hpp"
+#endif
 #include <span>
 
 using std::size_t;
