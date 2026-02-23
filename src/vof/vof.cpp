@@ -47,7 +47,7 @@ Let's walk backwards.
                 minus[dim]--;
                 nbcells++;
             }
-            if(idxs[dim] != inner_grid_indices.shape[dim]){
+            if(idxs[dim] != inner_grid_indices.shape[dim] - 1){
                 plus[dim]++;
                 nbcells++;
             }
@@ -63,7 +63,7 @@ Let's walk backwards.
                 minus[dim]--;
                 nbcells++;
             }
-            if(idxs[dim] != inner_grid_indices.shape[dim]){
+            if(idxs[dim] != inner_grid_indices.shape[dim] - 1){
                 plus[dim]++;
                 nbcells++;
             }
@@ -89,7 +89,7 @@ Let's walk backwards.
                 total += rho_inv;
                 A.insert(c, before.volume_fraction.idx_to_offset(minus)) = rho_inv;
             }
-            if(idxs[dim] != 0){
+            if(idxs[dim] != before.volume_fraction.shape()[dim] - 1){
                 std::array<std::size_t, 3> plus = idxs;
                 plus[dim]++;
                 double rho_inv = (
@@ -124,12 +124,12 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
 
     for(int dim = 0; dim < ndim; dim++){
         for(const auto& idxs: before.u[dim].indices()){
-            if(idxs[dim] == 0 or idxs[dim] == before.u[dim].shape()[dim]){
+            if(idxs[dim] == 0 or idxs[dim] == before.u[dim].shape()[dim] - 1){
                 // TODO: how to handle the boundary?
             } else {
-                std::array<std::size_t, 3> plus = idxs;
-                plus[dim]++;
-                after.u[dim][idxs] = before.u[dim][idxs] + dt * (pressure[idxs] + pressure[plus]) / 2 / (rho(before.volume_fraction[idxs]) + rho(before.volume_fraction[plus])) * 2;
+                std::array<std::size_t, 3> minus = idxs;
+                minus[dim]--;
+                after.u[dim][idxs] = before.u[dim][idxs] + dt * (pressure[minus] + pressure[idxs]) / 2 / (rho(before.volume_fraction[minus]) + rho(before.volume_fraction[idxs])) * 2;
             }
         }
     }
@@ -149,8 +149,11 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         /* Reconstruction of the line segment with Mixed Young Centered */
         std::array<double, 3> normal;
         for(int di = -1; di <= 1; di++){
+            if(i+di < 0 or i+di >= before.volume_fraction.shape()[0]) continue;
             for(int dj = -1; dj <= 1; dj++){
+                if(j+dj < 0 or j+dj >= before.volume_fraction.shape()[1]) continue;
                 for(int dk = -1; dk <= 1; dk++){
+                    if(k+dk < 0 or k+dk >= before.volume_fraction.shape()[2]) continue;
                     int diff = (di == 0) + (dj == 0) + (dk == 0);
                     int coeff = diff == 1 ? 4 : diff == 2 ? 2 : diff == 3 ? 1 : 0;
                     if(di == -1 or di == 1)
@@ -384,7 +387,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             idxs_after[dim] -= 1;
             if(idxs[dim] == 0) {
                 advected_volume.u[dim][idxs] = advected_volume_early[idxs][dim];
-            } else if(idxs[dim] == before.volume_fraction.shape()[dim]) {
+            } else if(idxs[dim] == before.volume_fraction.shape()[dim] - 1) {
                 advected_volume.u[dim][idxs] = advected_volume_late[idxs_after][dim];
             } else {
                 if(after.u[dim][idxs] > 0) {
