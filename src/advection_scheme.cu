@@ -12,7 +12,8 @@ void nocuda_step(
     PlainCGrid out,
     double t,
     double c, // C is the Courant number, c = v dx/dt. It must hold that 0 <= c < 1
-    std::size_t grid_width, std::size_t grid_height
+    std::size_t grid_width, std::size_t grid_height,
+    std::size_t block_size
 ) {
     for(int i = 0; i < grid_height; i++) {
         out[i*grid_width] = sin(t * SINE_FREQ_2PI) + 1;
@@ -71,10 +72,11 @@ void UpwindScheme::step(
     const double c = WAVE_SPEED * before.shape()[0] * dt;
     assert(c <= 1.0);
 #ifndef NO_CUDA
-    cuda_step<<< 1, before.shape()[1] >>>(before.data(), after.data(), t, c, after.shape()[1], after.shape()[0], 1);
+    cuda_step<<< 1, before.shape()[1] >>>(
 #else
-    nocuda_step(before._data, after._data, t, c, after.rows(), after.cols());
+    nocuda_step(
 #endif
+        before.data(), after.data(), t, c, after.shape()[1], after.shape()[0], 1);
     t += dt;
 }
 
@@ -90,8 +92,9 @@ void UpwindScheme::multi_step(
 #ifndef NO_CUDA
     cuda_multistep<<< 1, after.shape()[1] >>>(before.data(), after.data(), t, c, after.shape()[1], after.shape()[0], 1, N);
 #else
+    UpwindScheme::Grid* current_grid = &before, * other_grid = &after;
     for(unsigned i = 0; i < N; i++){
-        nocuda_step(before._data, after._data, t, c, after.rows(), after.cols());
+        nocuda_step(current_grid->data(), other_grid->data(), t, c, after.shape()[1], after.shape()[0], 1);
         t += dt;
         std::swap(other_grid, current_grid);
     }

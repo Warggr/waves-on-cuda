@@ -155,10 +155,21 @@ public:
         _size(std::move(dimensions)),
         GridView<dtype, dimension>(nullptr, this->_size)
     {
-        this->_data = static_cast<dtype*>(CUDAAllocator::calloc(this->size(), sizeof(dtype)));
+        this->_data = static_cast<dtype*>(
+#ifdef NO_CUDA
+           calloc(
+#else
+           CUDAAllocator::calloc(
+#endif
+               this->size(), sizeof(dtype)));
     }
     ~Grid() {
-        CUDAAllocator::free(this->_data);
+#ifdef NO_CUDA
+           free(
+#else
+           CUDAAllocator::free(
+#endif
+        this->_data);
     }
     void operator=(const Grid& other) {
         assert(this->_size == other._size);
