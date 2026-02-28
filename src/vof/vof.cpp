@@ -121,7 +121,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         forces[idx][2] = -9.81;
     }
 
-    auto pressure = compute_pressure(before, forces, dx);
+    auto pressure = compute_pressure(before, std::move(forces), dx);
 
     for(int dim = 0; dim < ndim; dim++){
         for(const auto& idxs: before.u[dim].indices()){

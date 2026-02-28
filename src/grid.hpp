@@ -163,6 +163,10 @@ public:
 #endif
                this->size(), sizeof(dtype)));
     }
+    Grid(const Grid& other) = delete;
+    Grid(Grid&& other): _size(std::move(other._size)), GridView<dtype, dimension>(other._data, this->_size) {
+        other._data = nullptr;
+    }
     ~Grid() {
 #ifdef NO_CUDA
            free(
