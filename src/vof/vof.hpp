@@ -30,7 +30,7 @@ private:
 
 class VOF: public Scheme<StaggeredGrid, 3> {
 private:
-    static ::Grid<double, ndim> compute_pressure(const StaggeredGrid& before, const ::Grid<Speed, ndim>& forces);
+    static ::Grid<double, ndim> compute_pressure(const StaggeredGrid& before, const ::Grid<Speed, ndim>& forces, std::array<double, 3> dx);
 public:
     void step(const StaggeredGrid& before, StaggeredGrid& after, double t, double dt) const override;
 };

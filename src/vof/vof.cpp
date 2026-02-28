@@ -17,7 +17,7 @@ Let's walk backwards.
 - i.e. we want u_trans on a staggered grid
 - So, we want u_i u_j on an i-staggered grid, but *also* on a y-staggered grid... unless we use a centered scheme, in which case we can have it on the cell center
 */
-::Grid<double, ndim> VOF::compute_pressure(const StaggeredGrid& before, const ::Grid<Speed, ndim>& forces){
+::Grid<double, ndim> VOF::compute_pressure(const StaggeredGrid& before, const ::Grid<Speed, ndim>& forces, std::array<double, 3> dx){
     const auto inner_grid_shape = forces.shape();
     const auto inner_grid_indices = before.volume_fraction.indices();
     assert(before.volume_fraction.shape() == forces.shape());
@@ -38,7 +38,6 @@ Let's walk backwards.
         uiuj[2][i][j][k] = ujuk + uiuk;
     }
     ::Grid<Speed, ndim> u_trans(inner_grid_shape);
-    constexpr double dx = 0.01;
     for(const auto& idxs: inner_grid_indices){
         for(int dim = 0; dim < ndim; dim++){
             std::array<std::size_t, 3> plus = idxs, minus = idxs;
@@ -51,7 +50,7 @@ Let's walk backwards.
                 plus[dim]++;
                 nbcells++;
             }
-            u_trans[idxs][dim] = (uiuj[0][plus] - uiuj[0][minus]) / (nbcells * dx) + forces[idxs][dim];
+            u_trans[idxs][dim] = (uiuj[0][plus] - uiuj[0][minus]) / (nbcells * dx[dim]) + forces[idxs][dim];
         }
     }
     ::Grid<double, ndim> div_u(inner_grid_shape);
@@ -67,7 +66,7 @@ Let's walk backwards.
                 plus[dim]++;
                 nbcells++;
             }
-            div_u[idxs] += (u_trans[plus][dim] - u_trans[minus][dim]) / (nbcells * dx);
+            div_u[idxs] += (u_trans[plus][dim] - u_trans[minus][dim]) / (nbcells * dx[dim]);
         }
     }
 
@@ -115,12 +114,14 @@ Let's walk backwards.
 }
 
 void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, double dt) const {
+    std::array<double, 3> dx;
+    for(int dim = 0; dim < 3; dim++) dx[dim] = 1.0 / before.volume_fraction.shape()[dim];
     ::Grid<Speed, ndim> forces(before.volume_fraction.shape());
     for(const auto& idx: forces.indices()) {
         forces[idx][2] = -9.81;
     }
 
-    auto pressure = compute_pressure(before, forces);
+    auto pressure = compute_pressure(before, forces, dx);
 
     for(int dim = 0; dim < ndim; dim++){
         for(const auto& idxs: before.u[dim].indices()){
@@ -400,7 +401,6 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
     }
 
     // Split scheme
-    double dx[ndim];
     after.volume_fraction = before.volume_fraction;
     for(int dim = 0; dim < ndim; dim++){
         for(const auto& idxs: before.volume_fraction.indices()) {
