@@ -421,22 +421,33 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
     StaggeredGrid advected_volume(before.volume_fraction.shape());
     for(int dim = 0; dim < ndim; dim++){
         for(const auto& idxs: before.u[dim].indices()) {
-            auto idxs_after = idxs;
-            // after[0] is early[1]
-            idxs_after[dim] -= 1;
+            // [ i-1 ]  -|-> u_i [ i ]
+            //  late[i-1]|early[i]
+            auto minus = idxs;
+            minus[dim] -= 1;
             if(idxs[dim] == 0) {
                 advected_volume.u[dim][idxs] = advected_volume_early[idxs][dim];
             } else if(idxs[dim] == before.u[dim].shape()[dim] - 1) {
-                advected_volume.u[dim][idxs] = advected_volume_late[idxs_after][dim];
+                advected_volume.u[dim][idxs] = advected_volume_late[minus][dim];
             } else {
                 if(after.u[dim][idxs] > 0) {
-                    advected_volume.u[dim][idxs] = advected_volume_early[idxs][dim];
+                    double max_pos = before.volume_fraction[minus] / (dt / dx[dim]);
+                    advected_volume.u[dim][idxs] = std::min(advected_volume_late[minus][dim], max_pos);
                 } else {
-                    advected_volume.u[dim][idxs] = advected_volume_late[idxs_after][dim];
+                    double max_neg = before.volume_fraction[idxs] / (dt / dx[dim]);
+                    advected_volume.u[dim][idxs] = -std::min(advected_volume_early[idxs][dim], max_neg);
                 }
             }
         }
     }
+
+    // Idea of the dt / dx:
+    // u * wall_size is how much volume would pass through a unit wall in one unit of time.
+    // ("unit wall" justifies wall_size being in [0, 1]).
+    // But I don't have a unit of time, I only have dt -> so only dt * u * wall_size passes through.
+    // And I also don't have a unit wall, I have a dx * dy wall -> only dt * u * wall_size * dx * dy passes through.
+    // But I don't want to fill a unit cell, I only want to fill a cell of size dxdydz -> dt * u * wall_size * dx * dy * dz means that the cell is filled.
+    // So the "fill percentage" that passes through is dt * u * wall_size / dz.
 
     // Split scheme
     after.volume_fraction = before.volume_fraction;
