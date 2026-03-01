@@ -5,21 +5,9 @@
 #include "marching_cubes/renderer.hpp"
 #include "vof/vof.hpp"
 #include <boost/program_options.hpp>
-#include <ostream>
 #include <chrono>
 #include <iostream>
 #include <variant>
-
-template<int dim>
-std::ostream& operator<<(std::ostream& os, const Grid<double, dim>& grid) {
-    for (const auto& row : grid) {
-        for (const auto& cell : row) {
-            os << cell << " ";
-        }
-        os << "\n";
-    }
-    return os;
-}
 
 namespace po = boost::program_options;
 

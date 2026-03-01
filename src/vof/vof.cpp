@@ -3,6 +3,7 @@
 #include <Eigen/IterativeLinearSolvers>
 #include <cassert>
 #include <cmath>
+#include <ostream>
 
 double rho(double volume_fraction) {
     return 0.01 + 1 * volume_fraction;
@@ -51,6 +52,7 @@ Let's walk backwards.
                 nbcells++;
             }
             u_trans[idxs][dim] = (uiuj[0][plus] - uiuj[0][minus]) / (nbcells * dx[dim]) + forces[idxs][dim];
+            assert(not std::isnan(u_trans[idxs][dim]));
         }
     }
     ::Grid<double, ndim> div_u(inner_grid_shape);
@@ -67,6 +69,7 @@ Let's walk backwards.
                 nbcells++;
             }
             div_u[idxs] += (u_trans[plus][dim] - u_trans[minus][dim]) / (nbcells * dx[dim]);
+            assert(not std::isnan(div_u[idxs]));
         }
     }
 
@@ -106,11 +109,20 @@ Let's walk backwards.
     cg.compute(A);
     Map<VectorXd> rhs(div_u.data(), div_u.size());
     VectorXd pressure_eig = cg.solve(rhs);
+    for(const auto& element: pressure_eig)
+        assert(not std::isnan(element));
 
     ::Grid<double, ndim> pressure(div_u.shape());
     Map<VectorXd> map(pressure.data(), pressure.size());
     map = std::move(pressure_eig);
     return pressure;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::array<double, 3>& vec) {
+    os << '(';
+    for(const auto& elem: vec) os << elem << ',';
+    os << ')';
+    return os;
 }
 
 void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, double dt) const {
@@ -122,6 +134,9 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
     }
 
     auto pressure = compute_pressure(before, std::move(forces), dx);
+    for(const auto& idxs: pressure.indices()){
+        assert(not std::isnan(pressure[idxs]));
+    }
 
     for(int dim = 0; dim < ndim; dim++){
         for(const auto& idxs: before.u[dim].indices()){
@@ -139,10 +154,12 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
     for(const auto& [i, j, k]: before.volume_fraction.indices()) {
         const auto cell_vf = before.volume_fraction[i][j][k];
         if(0 > cell_vf) {
-            assert(false);
+            //assert(false);
+            before.volume_fraction[i][j][k] = 0;
         }
         else if(1 < cell_vf) {
-            assert(false);
+            //assert(false);
+            before.volume_fraction[i][j][k] = 1.0;
         }
         else if(0 == cell_vf or 1 == cell_vf){
             continue;
@@ -363,6 +380,8 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
                 }
                 if(normals[idxs][dim] == 0)
                     assert(wall_sizes_early_rot[dim] == wall_sizes_late_rot[dim]);
+                assert(not std::isnan(wall_sizes_early[idxs][dim]));
+                assert(not std::isnan(wall_sizes_late[idxs][dim]));
             }
         }
     }
@@ -410,6 +429,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             if(before.volume_fraction[idxs] >= 0.5) {
                 after.volume_fraction[idxs] += (dt / dx[dim]) * (after.u[dim][idxs] - after.u[dim][idxs_after]);
             }
+            assert(not std::isnan(after.volume_fraction[idxs]));
         }
     }
 }

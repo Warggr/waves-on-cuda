@@ -4,6 +4,7 @@
 #include <functional>
 #include <numeric>
 #include <cassert>
+#include <ostream>
 
 template<class dtype, size_t dimension>
 class GridViewIterator;
@@ -60,6 +61,7 @@ public:
         std::size_t offset = 0;
         for(int dim = 0; dim < dimension; dim++){
             offset *= _grid_size_view[dim];
+            assert(idxs[dim] < _grid_size_view[dim]);
             offset += idxs[dim];
         }
         return offset;
@@ -91,6 +93,7 @@ public:
 
     // Return a copy, because this is a View anyway (no data gets copied)
     GridView<dtype, dimension-1> operator[] (int i) const {
+        assert(i < _grid_size_view[0]);
         const std::size_t subgrid_size = std::reduce(std::next(shape().begin()), shape().end(), 1, std::multiplies<std::size_t>{});
         return { _data + i*subgrid_size, { _grid_size_view._data + 1 } };
     }
@@ -125,6 +128,18 @@ public:
 
     friend class GridView<dtype, 2>;
 };
+
+std::ostream& operator<<(std::ostream& os, const std::array<double, 3>& vec);
+
+template<typename dtype, std::size_t dim>
+std::ostream& operator<<(std::ostream& os, const GridView<dtype, dim>& grid) {
+    os << "[";
+    for (const auto& row : grid) {
+        os << row << ",";
+    }
+    os << "]\n";
+    return os;
+}
 
 template<class dtype, size_t dimension>
 struct GridViewIterator: public GridView<dtype, dimension> {
