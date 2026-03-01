@@ -19,8 +19,8 @@ Let's walk backwards.
 - i.e. we want u_trans on a staggered grid
 - So, we want u_i u_j on an i-staggered grid, but *also* on a y-staggered grid... unless we use a centered scheme, in which case we can have it on the cell center
 */
-::Grid<double, ndim> VOF::compute_pressure(const StaggeredGrid& before, const ::Grid<Speed, ndim>& forces, std::array<double, 3> dx){
-    const auto inner_grid_shape = forces.shape();
+::Grid<Speed, ndim> VOF::compute_transport_velocity(const StaggeredGrid& before, ::Grid<Speed, ndim> forces, std::array<double, 3> dx){
+    const auto inner_grid_shape = before.volume_fraction.shape();
     const auto inner_grid_indices = before.volume_fraction.indices();
     assert(before.volume_fraction.shape() == forces.shape());
     ::Grid<double, ndim> uiuj[3] = {
@@ -62,8 +62,12 @@ Let's walk backwards.
             assert(not std::isnan(u_trans[idxs][dim]));
         }
     }
-    ::Grid<double, ndim> div_u(inner_grid_shape);
-    for(const auto& idxs: inner_grid_indices){
+    return u_trans;
+}
+
+::Grid<double, ndim> VOF::compute_pressure(const ::Grid<double, ndim>& volume_fraction, const ::Grid<Speed, ndim>& u_trans, std::array<double, 3> dx) {
+    ::Grid<double, ndim> div_u(volume_fraction.shape());
+    for(const auto& idxs: div_u.indices()){
         for(int dim = 0; dim < ndim; dim++){
             std::array<std::size_t, 3> plus = idxs, minus = idxs;
             int nbcells = 0;
@@ -71,7 +75,7 @@ Let's walk backwards.
                 minus[dim]--;
                 nbcells++;
             }
-            if(idxs[dim] != inner_grid_indices.shape[dim] - 1){
+            if(idxs[dim] != u_trans.shape()[dim] - 1){
                 plus[dim]++;
                 nbcells++;
             }
@@ -84,29 +88,29 @@ Let's walk backwards.
 
     SparseMatrix<double> A(div_u.size(), div_u.size());
     A.reserve(VectorXi::Constant(div_u.size(), ndim*2 + 1));
-    for(const auto& idxs: inner_grid_indices) {
+    for(const auto& idxs: div_u.indices()) {
         double total = 0.0;
-        std::size_t c = before.volume_fraction.idx_to_offset(idxs);
+        std::size_t c = div_u.idx_to_offset(idxs);
         for(int dim = 0; dim < ndim; dim++){
             if(idxs[dim] != 0){
                 std::array<std::size_t, 3> minus = idxs;
                 minus[dim]--;
                 double rho_inv = (
-                    1 / rho(before.volume_fraction[idxs]) +
-                    1 / rho(before.volume_fraction[minus])
+                    1 / rho(volume_fraction[idxs]) +
+                    1 / rho(volume_fraction[minus])
                 ) * 0.5;
                 total += rho_inv;
-                A.insert(c, before.volume_fraction.idx_to_offset(minus)) = rho_inv;
+                A.insert(c, volume_fraction.idx_to_offset(minus)) = rho_inv;
             }
-            if(idxs[dim] != before.volume_fraction.shape()[dim] - 1){
+            if(idxs[dim] != volume_fraction.shape()[dim] - 1){
                 std::array<std::size_t, 3> plus = idxs;
                 plus[dim]++;
                 double rho_inv = (
-                    1 / rho(before.volume_fraction[idxs]) +
-                    1 / rho(before.volume_fraction[plus])
+                    1 / rho(volume_fraction[idxs]) +
+                    1 / rho(volume_fraction[plus])
                 ) * 0.5;
                 total += rho_inv;
-                A.insert(c, before.volume_fraction.idx_to_offset(plus)) = rho_inv;
+                A.insert(c, volume_fraction.idx_to_offset(plus)) = rho_inv;
             }
         }
         A.insert(c, c) = -total;
@@ -141,7 +145,8 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         forces[idx][2] = -9.81 * rho(before.volume_fraction[idx]);
     }
 
-    auto pressure = compute_pressure(before, std::move(forces), dx);
+    auto u_trans = compute_transport_velocity(before, std::move(forces), dx);
+    auto pressure = compute_pressure(before.volume_fraction, u_trans, dx);
     for(const auto& idxs: pressure.indices()){
         assert(not std::isnan(pressure[idxs]));
     }
@@ -154,7 +159,11 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 std::array<std::size_t, 3> minus = idxs;
                 minus[dim]--;
-                after.u[dim][idxs] = before.u[dim][idxs] + dt * (pressure[minus] + pressure[idxs]) / 2 / (rho(before.volume_fraction[minus]) + rho(before.volume_fraction[idxs])) * 2;
+                after.u[dim][idxs] =
+                    before.u[dim][idxs]
+                    + dt * (pressure[minus] - pressure[idxs]) / 2 / (rho(before.volume_fraction[minus]) + rho(before.volume_fraction[idxs])) * 2
+                    + dt * (u_trans[minus][dim] + u_trans[idxs][dim]) / 2
+                ;
             }
         }
     }
