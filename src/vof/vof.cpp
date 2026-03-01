@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <ostream>
+#include <algorithm>
 
 double rho(double volume_fraction) {
     return 0.01 + 1 * volume_fraction;
@@ -43,11 +44,17 @@ Let's walk backwards.
         for(int dim = 0; dim < ndim; dim++){
             std::array<std::size_t, 3> plus = idxs, minus = idxs;
             int nbcells = 0;
-            if(idxs[dim] != 0){
+            if(idxs[dim] == 0){
+                u_trans[idxs][dim] = 0;
+                continue;
+            } else {
                 minus[dim]--;
                 nbcells++;
             }
-            if(idxs[dim] != inner_grid_indices.shape[dim] - 1){
+            if(idxs[dim] == inner_grid_indices.shape[dim] - 1){
+                u_trans[idxs][dim] = 0;
+                continue;
+            } else {
                 plus[dim]++;
                 nbcells++;
             }
@@ -75,7 +82,7 @@ Let's walk backwards.
 
     using namespace Eigen;
 
-    SparseMatrix<double> A;
+    SparseMatrix<double> A(div_u.size(), div_u.size());
     A.reserve(VectorXi::Constant(div_u.size(), ndim*2 + 1));
     for(const auto& idxs: inner_grid_indices) {
         double total = 0.0;
@@ -129,8 +136,9 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
     std::array<double, 3> dx;
     for(int dim = 0; dim < 3; dim++) dx[dim] = 1.0 / before.volume_fraction.shape()[dim];
     ::Grid<Speed, ndim> forces(before.volume_fraction.shape());
+    const double cell_volume = std::reduce(dx.begin(), dx.end(), 1, std::multiplies<double>{});
     for(const auto& idx: forces.indices()) {
-        forces[idx][2] = -9.81;
+        forces[idx][2] = -9.81 * rho(before.volume_fraction[idx]);
     }
 
     auto pressure = compute_pressure(before, std::move(forces), dx);
@@ -142,6 +150,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         for(const auto& idxs: before.u[dim].indices()){
             if(idxs[dim] == 0 or idxs[dim] == before.u[dim].shape()[dim] - 1){
                 // TODO: how to handle the boundary?
+                after.u[dim][idxs] = 0;
             } else {
                 std::array<std::size_t, 3> minus = idxs;
                 minus[dim]--;
@@ -167,19 +176,22 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         /* Reconstruction of the line segment with Mixed Young Centered */
         std::array<double, 3> normal;
         for(int di = -1; di <= 1; di++){
-            if(i+di < 0 or i+di >= before.volume_fraction.shape()[0]) continue;
+            int di_pushed = di;
+            if(i+di < 0 or i+di >= before.volume_fraction.shape()[0]) di_pushed = 0;
             for(int dj = -1; dj <= 1; dj++){
-                if(j+dj < 0 or j+dj >= before.volume_fraction.shape()[1]) continue;
+                int dj_pushed = dj;
+                if(j+dj < 0 or j+dj >= before.volume_fraction.shape()[1]) dj_pushed = 0;
                 for(int dk = -1; dk <= 1; dk++){
-                    if(k+dk < 0 or k+dk >= before.volume_fraction.shape()[2]) continue;
-                    int diff = (di == 0) + (dj == 0) + (dk == 0);
+                    int dk_pushed = dk;
+                    if(k+dk < 0 or k+dk >= before.volume_fraction.shape()[2]) dk_pushed = 0;
+                    int diff = (di != 0) + (dj != 0) + (dk != 0);
                     int coeff = diff == 1 ? 4 : diff == 2 ? 2 : diff == 3 ? 1 : 0;
                     if(di == -1 or di == 1)
-                        normal[0] += di * before.volume_fraction[i+di][j+dj][k+dk] * coeff;
+                        normal[0] += di * before.volume_fraction[i+di_pushed][j+dj_pushed][k+dk_pushed] * coeff;
                     if(dj == -1 or dj == 1)
-                        normal[1] += dj * before.volume_fraction[i+di][j+dj][k+dk] * coeff;
+                        normal[1] += dj * before.volume_fraction[i+di_pushed][j+dj_pushed][k+dk_pushed] * coeff;
                     if(dk == -1 or dk == 1)
-                        normal[2] += dk * before.volume_fraction[i+di][j+dj][k+dk] * coeff;
+                        normal[2] += dk * before.volume_fraction[i+di_pushed][j+dj_pushed][k+dk_pushed] * coeff;
                 }
             }
         }
@@ -206,12 +218,12 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
          `0 |    6.|
            `+-3----+
         */
-        if(before.volume_fraction[idxs] == 1.0) {
+        if(before.volume_fraction[idxs] >= 1.0) {
             for(int dim = 0; dim < ndim; dim++){
                 wall_sizes_early[idxs][dim] = 1.0;
                 wall_sizes_late[idxs][dim] = 1.0;
             }
-        } else if(before.volume_fraction[idxs] == 0.0) {
+        } else if(before.volume_fraction[idxs] <= 0.0) {
             for(int dim = 0; dim < ndim; dim++){
                 wall_sizes_early[idxs][dim] = 0.0;
                 wall_sizes_late[idxs][dim] = 0.0;
@@ -224,7 +236,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
                 std::abs(normals[idxs][2])
             };
             std::array<float, ndim> wall_sizes_early_rot, wall_sizes_late_rot;
-            double alpha = before.volume_fraction[idxs] * (n[0] + n[1] + n[2]);
+            const double alpha = before.volume_fraction[idxs] * (n[0] + n[1] + n[2]);
             if(n[0] >= alpha) {
                 intersect[0] = alpha / n[0];
                 intersect[3] = 0.0;
@@ -232,18 +244,18 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
                 intersect[9] = 0.0;
             } else {
                 intersect[0] = 1.0;
-                alpha -= n[0];
-                if(n[1] >= alpha) {
-                    intersect[3] = alpha / n[1];
+                const double alpha_var = alpha - n[0];
+                if(n[1] >= alpha_var) {
+                    assert(n[1] != 0);
+                    intersect[3] = alpha_var / n[1];
+                    assert(not std::isnan(intersect[3]));
                     intersect[9] = 0.0;
                 } else {
-                    wall_sizes_early[idxs][2] = 1.0;
                     intersect[3] = 1.0;
-                    alpha -= n[1];
-                    intersect[9] = alpha / n[2];
+                    intersect[9] = (alpha_var - n[1]) / n[2];
                 }
-                if(n[2] >= alpha) {
-                    intersect[4] = alpha / n[2];
+                if(n[2] >= alpha_var) {
+                    intersect[4] = alpha_var / n[2];
                 } else {
                     intersect[4] = 1.0;
                 }
@@ -255,17 +267,16 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
                 intersect[10] = 0.0;
             } else {
                 intersect[1] = 1.0;
-                alpha -= n[1];
-                if(n[2] >= alpha) {
-                    intersect[5] = alpha / n[2];
+                const double alpha_var = alpha - n[1];
+                if(n[2] >= alpha_var) {
+                    intersect[5] = alpha_var / n[2];
                     intersect[10] = 0.0;
                 } else {
                     intersect[5] = 1.0;
-                    alpha -= n[2];
-                    intersect[10] = alpha / n[0];
+                    intersect[10] = (alpha_var - n[2]) / n[0];
                 }
-                if(n[0] >= alpha) {
-                    intersect[6] = alpha / n[0];
+                if(n[0] >= alpha_var) {
+                    intersect[6] = alpha_var / n[0];
                 } else {
                     intersect[6] = 1.0;
                 }
@@ -277,16 +288,15 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
                 intersect[11] = 0.0;
             } else {
                 intersect[2] = 1.0;
-                alpha -= n[2];
-                if(n[0] >= alpha) {
-                    intersect[7] = alpha / n[0];
+                const double alpha_var = alpha - n[2];
+                if(n[0] >= alpha_var) {
+                    intersect[7] = alpha_var / n[0];
                 } else {
                     intersect[7] = 1.0;
-                    alpha -= n[0];
-                    intersect[11] = alpha / n[1];
+                    intersect[11] = (alpha_var - n[0]) / n[1];
                 }
-                if(n[2] >= alpha) {
-                    intersect[8] = alpha / n[1];
+                if(n[1] >= alpha_var) {
+                    intersect[8] = alpha_var / n[1];
                 } else {
                     intersect[8] = 1.0;
                 }
@@ -296,10 +306,10 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 if(intersect[1] < 1.0 and intersect[2] < 1.0) {
                     wall_sizes_early_rot[0] = 0.5 * intersect[1] * intersect[2];
-                } else if(intersect[1] == 1.0 and intersect[2] < 1.0) {
+                } else if(intersect[1] >= 1.0 and intersect[2] < 1.0) {
                     wall_sizes_early_rot[0] = 0.5 * (intersect[5] + intersect[2]);
-                } else if(intersect[1] < 1.0 and intersect[2] == 1.0) {
-                    wall_sizes_late_rot[0] = 0.5 * (intersect[1] + intersect[8]);
+                } else if(intersect[1] < 1.0 and intersect[2] >= 1.0) {
+                    wall_sizes_early_rot[0] = 0.5 * (intersect[1] + intersect[8]);
                 } else {
                     wall_sizes_early_rot[0] = 1 - 0.5 * intersect[8] * intersect[5];
                 }
@@ -309,9 +319,9 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 if(intersect[3] < 1.0 and intersect[4] < 1.0) {
                     wall_sizes_late_rot[0] = 0.5 * intersect[3] * intersect[4];
-                } else if(intersect[3] == 1.0 and intersect[4] < 1.0) {
+                } else if(intersect[3] >= 1.0 and intersect[4] < 1.0) {
                     wall_sizes_late_rot[0] = 0.5 * (intersect[4] + intersect[9]);
-                } else if(intersect[3] < 1.0 and intersect[4] == 1.0) {
+                } else if(intersect[3] < 1.0 and intersect[4] >= 1.0) {
                     wall_sizes_late_rot[0] = 0.5 * (intersect[3] + intersect[11]);
                 } else {
                     wall_sizes_late_rot[0] = 1 - 0.5 * intersect[9] * intersect[11];
@@ -322,10 +332,10 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 if(intersect[0] < 1.0 and intersect[2] < 1.0) {
                     wall_sizes_early_rot[1] = 0.5 * intersect[0] * intersect[2];
-                } else if(intersect[0] == 1.0 and intersect[2] < 1.0) {
+                } else if(intersect[0] >= 1.0 and intersect[2] < 1.0) {
                     wall_sizes_early_rot[1] = 0.5 * (intersect[4] + intersect[2]);
-                } else if(intersect[0] < 1.0 and intersect[2] == 1.0) {
-                    wall_sizes_late_rot[0] = 0.5 * (intersect[0] + intersect[7]);
+                } else if(intersect[0] < 1.0 and intersect[2] >= 1.0) {
+                    wall_sizes_early_rot[1] = 0.5 * (intersect[0] + intersect[7]);
                 } else {
                     wall_sizes_early_rot[1] = 1 - 0.5 * intersect[7] * intersect[4];
                 }
@@ -335,9 +345,9 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 if(intersect[5] < 1.0 and intersect[6] < 1.0) {
                     wall_sizes_late_rot[1] = 0.5 * intersect[5] * intersect[6];
-                } else if(intersect[5] == 1.0 and intersect[6] < 1.0) {
+                } else if(intersect[5] >= 1.0 and intersect[6] < 1.0) {
                     wall_sizes_late_rot[1] = 0.5 * (intersect[6] + intersect[10]);
-                } else if(intersect[5] < 1.0 and intersect[6] == 1.0) {
+                } else if(intersect[5] < 1.0 and intersect[6] >= 1.0) {
                     wall_sizes_late_rot[1] = 0.5 * (intersect[5] + intersect[9]);
                 } else {
                     wall_sizes_late_rot[1] = 1 - 0.5 * intersect[9] * intersect[10];
@@ -348,10 +358,10 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 if(intersect[0] < 1.0 and intersect[1] < 1.0) {
                     wall_sizes_early_rot[2] = 0.5 * intersect[0] * intersect[1];
-                } else if(intersect[0] == 1.0 and intersect[1] < 1.0) {
+                } else if(intersect[0] >= 1.0 and intersect[1] < 1.0) {
                     wall_sizes_early_rot[2] = 0.5 * (intersect[3] + intersect[1]);
-                } else if(intersect[0] < 1.0 and intersect[1] == 1.0) {
-                    wall_sizes_late_rot[0] = 0.5 * (intersect[0] + intersect[6]);
+                } else if(intersect[0] < 1.0 and intersect[1] >= 1.0) {
+                    wall_sizes_early_rot[2] = 0.5 * (intersect[0] + intersect[6]);
                 } else {
                     wall_sizes_early_rot[2] = 1 - 0.5 * intersect[6] * intersect[3];
                 }
@@ -361,9 +371,9 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             } else {
                 if(intersect[7] < 1.0 and intersect[8] < 1.0) {
                     wall_sizes_late_rot[2] = 0.5 * intersect[7] * intersect[8];
-                } else if(intersect[7] == 1.0 and intersect[8] < 1.0) {
+                } else if(intersect[7] >= 1.0 and intersect[8] < 1.0) {
                     wall_sizes_late_rot[2] = 0.5 * (intersect[8] + intersect[11]);
-                } else if(intersect[7] < 1.0 and intersect[8] == 1.0) {
+                } else if(intersect[7] < 1.0 and intersect[8] >= 1.0) {
                     wall_sizes_late_rot[2] = 0.5 * (intersect[7] + intersect[10]);
                 } else {
                     wall_sizes_late_rot[2] = 1 - 0.5 * intersect[11] * intersect[10];
@@ -394,8 +404,8 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             idxs_after[dim] += 1;
             /* Divergence from the Python code: we're not going to evaluate the 1st derivative of the wall size (dsize_x, dsize_y),
             because that sounds too hard */
-            advected_volume_early[idxs][dim] = after.u[dim][idxs] * wall_sizes_early[idxs][dim];
-            advected_volume_late[idxs][dim] = -after.u[dim][idxs_after] * wall_sizes_late[idxs][dim];
+            advected_volume_early[idxs][dim] = after.u[dim][idxs] * std::clamp(wall_sizes_early[idxs][dim], 0.0f, 1.0f);
+            advected_volume_late[idxs][dim] = -after.u[dim][idxs_after] * std::clamp(wall_sizes_late[idxs][dim], 0.0f, 1.0f);
         }
     }
 
@@ -407,7 +417,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
             idxs_after[dim] -= 1;
             if(idxs[dim] == 0) {
                 advected_volume.u[dim][idxs] = advected_volume_early[idxs][dim];
-            } else if(idxs[dim] == before.volume_fraction.shape()[dim] - 1) {
+            } else if(idxs[dim] == before.u[dim].shape()[dim] - 1) {
                 advected_volume.u[dim][idxs] = advected_volume_late[idxs_after][dim];
             } else {
                 if(after.u[dim][idxs] > 0) {

@@ -47,7 +47,7 @@ GRD_wrapper native_to_lib(const Grid<double, 3>& grid) {
 	}
 	lib_grid.F = const_cast<GRD_data_type***>(&(*result.dim2.begin()));
 	for(const auto& [i, j, k]: grid.indices()){
-		assert(lib_grid.F[i][j][k] == grid[i][j][k]);
+		assert(&lib_grid.F[i][j][k] == &grid[i][j][k]);
 		//printf("%f @ [%lu][%lu][%lu] = %p\n", grid[i][j][k], i, j, k, &grid[i][j][k]);
 	}
 
