@@ -2,16 +2,19 @@
 #include "grid.hpp"
 #include "generated/marching_cubes_cache.hpp"
 #include "timing.hpp"
+#include <span>
 
 using std::size_t;
 
 template<typename d, typename idx_t, std::size_t size>
-std::array<d, size> permute(std::array<d, size> original, std::array<idx_t, size> permutation) {
+void permute(std::span<d, size> original, const std::span<idx_t, size> permutation) {
     std::array<d, size> result;
     for(size_t i = 0; i < size; i++){
         result[permutation[i]] = original[i];
     }
-    return result;
+    for(size_t i = 0; i < size; i++){
+        original[i] = result[i];
+    }
 }
 
 namespace waves_on_cuda::marching_cubes {
@@ -47,8 +50,10 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
         v[i] = grid[z + ((i>>2)&1)][y + ((i>>1)&1)][x + (i&1)];
     }
 
-    std::array<Point3D<float>, NB_EDGES> intersect;
+    std::array<Point3D<float>, NB_EDGES+1> intersect_and_center;
+    std::span<Point3D<float>, NB_EDGES> intersect = std::span(intersect_and_center).first<NB_EDGES>();
     std::array<float, 3> base = { static_cast<float>(z), static_cast<float>(y), static_cast<float>(x) };
+    intersect_and_center[NB_EDGES] = Point3D<float>({base[0]+0.5f, base[1]+0.5f, base[2]+0.5f});
     for(int i = 0; i < NB_EDGES; i++){
         auto edge = cube_geometry.edge_definition[i];
         double a = v[edge.a],
@@ -65,8 +70,8 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
         if(v[i] > isoLevel) index_ += (1 << i);
     }
     const auto& case_ptr = lookup_table.case_table[index_];
-    intersect = permute(intersect, cube_geometry.all_permutations[case_ptr.permutation].edge_permutation);
-    v = permute(v, cube_geometry.all_permutations[case_ptr.permutation].vertex_permutation);
+    permute(intersect, std::span(cube_geometry.all_permutations[case_ptr.permutation].edge_permutation));
+    permute(std::span(v), std::span(cube_geometry.all_permutations[case_ptr.permutation].vertex_permutation));
     bool sign_flip = case_ptr.sign_flip;
 
     const Case& _case = lookup_table.all_cases[case_ptr._case];
@@ -87,15 +92,15 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     const auto& subcase_ptr = _case.subcases[test];
     sign_flip = sign_flip ^ subcase_ptr.sign_flip;
     const auto& subcase = lookup_table.all_subcases[subcase_ptr.subcase];
-    intersect = permute(intersect, cube_geometry.all_permutations[subcase_ptr.permutation].edge_permutation);
+    permute(intersect, std::span(cube_geometry.all_permutations[subcase_ptr.permutation].edge_permutation));
 
     for(int i = 0; i < subcase.num_triangles; i++){
         Triangle<float> tri;
         for(size_t j = 0; j < 3; j++){
             if(sign_flip){
-                tri.corners[2-j] = intersect[subcase.triangles[i][j]];
+                tri.corners[2-j] = intersect_and_center[subcase.triangles[i][j]];
             } else {
-                tri.corners[j] = intersect[subcase.triangles[i][j]];
+                tri.corners[j] = intersect_and_center[subcase.triangles[i][j]];
             }
         }
         out.push_back(tri);
