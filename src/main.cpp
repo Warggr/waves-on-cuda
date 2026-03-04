@@ -94,6 +94,12 @@ int main(int argc, char* argv[]) {
     World<VOF::Grid, 3> world(dims, options.time_step);
     const VOF scheme;
     VOF::Grid initialGrid(dims);
+    for(const auto& idxs: initialGrid.volume_fraction.indices()){
+        if(idxs[2] < options.grid_size / 2){
+            initialGrid.volume_fraction[idxs] = 1;
+        }
+    }
+    world.reset(initialGrid);
 
     auto config = std::get_if<PerfRunConfig>(&options.specific_config);
     if (config) {

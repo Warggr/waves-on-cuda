@@ -10,6 +10,8 @@ double rho(double volume_fraction) {
     return 0.01 + 1 * volume_fraction;
 }
 
+constexpr double g = 9.81;
+
 /*
 Let's walk backwards.
 - We want the pressure gradient on the cell faces.
@@ -59,6 +61,7 @@ template<template<typename> class allocator>
                 plus[dim]++;
                 nbcells++;
             }
+            nbcells = 2;
             u_trans[idxs][dim] = (uiuj[0][plus] - uiuj[0][minus]) / (nbcells * dx[dim]) + forces[idxs][dim];
             assert(not std::isnan(u_trans[idxs][dim]));
         }
@@ -81,6 +84,7 @@ template<template<typename> class allocator>
                 plus[dim]++;
                 nbcells++;
             }
+            nbcells = 2;
             div_u[idxs] += (u_trans[plus][dim] - u_trans[minus][dim]) / (nbcells * dx[dim]);
             assert(not std::isnan(div_u[idxs]));
         }
@@ -97,31 +101,32 @@ template<template<typename> class allocator>
             if(idxs[dim] != 0){
                 std::array<std::size_t, 3> minus = idxs;
                 minus[dim]--;
-                double rho_inv = (
-                    1 / rho(volume_fraction[idxs]) +
-                    1 / rho(volume_fraction[minus])
-                ) * 0.5;
-                total += rho_inv;
-                A.insert(c, volume_fraction.idx_to_offset(minus)) = rho_inv;
+                double factor = 2 / (
+                    rho(volume_fraction[idxs]) +
+                    rho(volume_fraction[minus])
+                ) / (dx[dim] * dx[dim]);
+                total += factor;
+                A.insert(c, volume_fraction.idx_to_offset(minus)) = factor;
             }
             if(idxs[dim] != volume_fraction.shape()[dim] - 1){
                 std::array<std::size_t, 3> plus = idxs;
                 plus[dim]++;
-                double rho_inv = (
-                    1 / rho(volume_fraction[idxs]) +
-                    1 / rho(volume_fraction[plus])
-                ) * 0.5;
-                total += rho_inv;
-                A.insert(c, volume_fraction.idx_to_offset(plus)) = rho_inv;
+                double factor = 2 / (
+                    rho(volume_fraction[idxs]) +
+                    rho(volume_fraction[plus])
+                ) / (dx[dim] * dx[dim]);
+                total += factor;
+                A.insert(c, volume_fraction.idx_to_offset(plus)) = factor;
             }
         }
         A.insert(c, c) = -total;
     }
 
-    ConjugateGradient<SparseMatrix<double>, Lower|Upper> cg;
+    LeastSquaresConjugateGradient<SparseMatrix<double>> cg;
     cg.compute(A);
     Map<VectorXd> rhs(div_u.data(), div_u.size());
     VectorXd pressure_eig = cg.solve(rhs);
+    pressure_eig.array() -= pressure_eig.mean();
     for(const auto& element: pressure_eig)
         assert(not std::isnan(element));
 
@@ -146,7 +151,7 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, dou
     _Grid<Speed> forces(before.volume_fraction.shape());
     const double cell_volume = std::reduce(dx.begin(), dx.end(), 1, std::multiplies<double>{});
     for(const auto& idx: forces.indices()) {
-        forces[idx][2] = -9.81 * rho(before.volume_fraction[idx]);
+        forces[idx][2] = - g;
     }
 
     auto u_trans = compute_transport_velocity(before, std::move(forces), dx);
@@ -165,7 +170,7 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, dou
                 minus[dim]--;
                 after.u[dim][idxs] =
                     before.u[dim][idxs]
-                    + dt * (pressure[minus] - pressure[idxs]) / 2 / (rho(before.volume_fraction[minus]) + rho(before.volume_fraction[idxs])) * 2
+                    + dt * (pressure[minus] - pressure[idxs]) / dx[dim] / (rho(before.volume_fraction[minus]) + rho(before.volume_fraction[idxs])) * 2
                     + dt * (u_trans[minus][dim] + u_trans[idxs][dim]) / 2
                 ;
             }
@@ -215,7 +220,7 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, dou
             std::pow(normal[2], 2)
         );
         for(int dim = 0; dim < ndim; dim++)
-            normal[dim] /= normal_norm; 
+            normal[dim] = -normal[dim] / normal_norm;
         normals[i][j][k] = normal;
     }
 
@@ -394,7 +399,7 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, dou
             }
 
             for(int dim = 0; dim < ndim; dim++){
-                if(normals[idxs][0] > 0) {
+                if(normals[idxs][dim] > 0) {
                     wall_sizes_late[idxs][dim] = wall_sizes_late_rot[dim];
                     wall_sizes_early[idxs][dim] = wall_sizes_early_rot[dim];
                 } else {
@@ -418,7 +423,7 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, dou
             /* Divergence from the Python code: we're not going to evaluate the 1st derivative of the wall size (dsize_x, dsize_y),
             because that sounds too hard */
             advected_volume_early[idxs][dim] = after.u[dim][idxs] * std::clamp(wall_sizes_early[idxs][dim], 0.0f, 1.0f);
-            advected_volume_late[idxs][dim] = -after.u[dim][idxs_after] * std::clamp(wall_sizes_late[idxs][dim], 0.0f, 1.0f);
+            advected_volume_late[idxs][dim] = after.u[dim][idxs_after] * std::clamp(wall_sizes_late[idxs][dim], 0.0f, 1.0f);
         }
     }
 
@@ -438,8 +443,9 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, dou
                     double max_pos = before.volume_fraction[minus] / (dt / dx[dim]);
                     advected_volume.u[dim][idxs] = std::min(advected_volume_late[minus][dim], max_pos);
                 } else {
-                    double max_neg = before.volume_fraction[idxs] / (dt / dx[dim]);
-                    advected_volume.u[dim][idxs] = -std::min(advected_volume_early[idxs][dim], max_neg);
+                    double max_neg = -before.volume_fraction[idxs] / (dt / dx[dim]);
+                    assert(advected_volume_early[idxs][dim] <= 0);
+                    advected_volume.u[dim][idxs] = std::max(advected_volume_early[idxs][dim], max_neg);
                 }
             }
         }
