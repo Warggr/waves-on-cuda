@@ -1,21 +1,12 @@
 #include "grid.hpp"
 #include "viewer.hpp"
-#include "my_glfw.hpp"
+#include "scheme.hpp"
+#include "marching_cubes/renderer.hpp"
+#include "vof/vof.hpp"
 #include <boost/program_options.hpp>
-#include <ostream>
 #include <chrono>
 #include <iostream>
 #include <variant>
-
-std::ostream& operator<<(std::ostream& os, const World::Grid& grid) {
-    for (const auto& row : grid) {
-        for (const auto& cell : row) {
-            os << cell << " ";
-        }
-        os << "\n";
-    }
-    return os;
-}
 
 namespace po = boost::program_options;
 
@@ -85,43 +76,59 @@ RunConfig parse_options(int argc, char* argv[]) {
     return config;
 }
 
-using Viewer2D = Viewer<Renderer2D, Grid<double, 2>>;
-
 int main(int argc, char* argv[]) {
     auto options = parse_options(argc, argv);
 
     using namespace std::chrono;
 
-    World world(options.grid_size, options.grid_size, options.time_step);
+    std::array<std::size_t, 3> dims;
+    for(int i = 0; i < 3; i++){
+        dims[i] = options.grid_size;
+    }
+#ifdef NO_CUDA
+    using VOF = VOF<std::allocator>;
+#else
+    using VOF = VOF<>;
+#endif
+
+    World<VOF::Grid, 3> world(dims, options.time_step);
+    const VOF scheme;
+    VOF::Grid initialGrid(dims);
+    for(const auto& idxs: initialGrid.volume_fraction.indices()){
+        if(idxs[2] < options.grid_size / 2){
+            initialGrid.volume_fraction[idxs] = 1;
+        }
+    }
+    world.reset(initialGrid);
 
     auto config = std::get_if<PerfRunConfig>(&options.specific_config);
     if (config) {
         std::cout << "#N,time[ms]" << std::endl;
         for (const unsigned int niters : config->niters) {
             std::cout << niters << ",";
-            world.reset();
+            world.reset(initialGrid);
             auto t1 = high_resolution_clock::now();
-            world.multi_step(niters);
-            world.synchronize();
+            world.multi_step(niters, scheme);
+            synchronize();
             auto t2 = high_resolution_clock::now();
             duration<double, std::milli> runtime = t2 - t1;
             std::cout << runtime.count() << std::endl;
         }
     } else {
-        Viewer2D myGlfw;
+        Viewer<GridView<double, 3>, Renderer3D> myGlfw;
 
         const steady_clock::duration dt_as_duration = duration_cast<steady_clock::duration>(duration<float, std::milli>(1000 * options.time_step));
         auto tick_time = steady_clock::now();
 
         try {
             while (true) {
-                world.step();
-                world.synchronize();
-                myGlfw.render(world.grid());
+                world.step(scheme);
+                synchronize();
+                myGlfw.render(world.grid().volume_fraction);
                 tick_time += dt_as_duration;
                 std::this_thread::sleep_until(tick_time);
             }
-        } catch (const Viewer2D::WindowClosed&) {
+        } catch (const Viewer<Grid<double, 3>, Renderer3D>::WindowClosed&) {
 
         }
     }

@@ -7,7 +7,7 @@
 
 class GLFWwindow;
 template<class T, size_t dim>
-class Grid;
+class GridView;
 
 class MyGLFW {
 public:
@@ -43,7 +43,7 @@ public:
 
 class Renderer2D: public MyGLFW {
 public:
-    void set_grid(const Grid<double, 2>* new_grid);
+    void set_grid(const GridView<double, 2>* new_grid);
 };
 
 #endif //MYGLFW_H

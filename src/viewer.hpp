@@ -5,7 +5,13 @@
 #include <stdexcept>
 #include <thread>
 
-template<class Renderer, class WorldGrid>
+template<typename R, typename Grid>
+concept Renders =
+    requires(R r, const Grid& g) {
+        { r.set_grid(g) } -> std::same_as<void>;
+    };
+
+template<class WorldGrid, Renders<WorldGrid> Renderer>
 class Viewer {
 public:
     struct WindowClosed : std::runtime_error {

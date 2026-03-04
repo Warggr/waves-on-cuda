@@ -2,7 +2,10 @@
 
 #include "ArrayView.hpp"
 #include <functional>
+#include <memory>
 #include <numeric>
+#include <cassert>
+#include <ostream>
 
 template<class dtype, size_t dimension>
 class GridViewIterator;
@@ -55,8 +58,23 @@ protected:
     const ArrayView<size_t, dimension> _grid_size_view;
     GridView(dtype* data, const ArrayView<size_t, dimension>& grid_size): _data(data), _grid_size_view(grid_size) {};
 public:
+    std::size_t idx_to_offset(std::array<std::size_t, dimension> idxs) const {
+        std::size_t offset = 0;
+        for(int dim = 0; dim < dimension; dim++){
+            offset *= _grid_size_view[dim];
+            assert(idxs[dim] < _grid_size_view[dim]);
+            offset += idxs[dim];
+        }
+        return offset;
+    }
+
     GridView(dtype* data, const std::array<size_t, dimension>& grid_size):
         GridView(data, ArrayView<size_t, dimension>{ const_cast<size_t*>(grid_size.data()) }) {}
+
+    void operator=(const GridView<dtype, dimension>& other) {
+        assert(this->_grid_size_view == other._grid_size_view);
+        std::copy(other._data, other._data + other.size(), this->_data);
+    }
 
     std::size_t size() const {
         return std::reduce(
@@ -76,8 +94,16 @@ public:
 
     // Return a copy, because this is a View anyway (no data gets copied)
     GridView<dtype, dimension-1> operator[] (int i) const {
+        assert(i < _grid_size_view[0]);
         const std::size_t subgrid_size = std::reduce(std::next(shape().begin()), shape().end(), 1, std::multiplies<std::size_t>{});
         return { _data + i*subgrid_size, { _grid_size_view._data + 1 } };
+    }
+
+    dtype& operator[](std::array<std::size_t, dimension> idxs) {
+        return _data[idx_to_offset(idxs)];
+    }
+    const dtype& operator[](std::array<std::size_t, dimension> idxs) const {
+        return _data[idx_to_offset(idxs)];
     }
 
     friend class GridView<dtype, dimension+1>;
@@ -104,6 +130,19 @@ public:
     friend class GridView<dtype, 2>;
 };
 
+template<typename dtype>
+std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec);
+
+template<typename dtype, std::size_t dim>
+std::ostream& operator<<(std::ostream& os, const GridView<dtype, dim>& grid) {
+    os << "[";
+    for (const auto& row : grid) {
+        os << row << ",";
+    }
+    os << "]\n";
+    return os;
+}
+
 template<class dtype, size_t dimension>
 struct GridViewIterator: public GridView<dtype, dimension> {
     GridViewIterator(dtype* data, const ArrayView<size_t, dimension>& grid_size): GridView<dtype, dimension>(data, grid_size) {};
@@ -119,33 +158,46 @@ GridViewIterator<dtype, dimension-1> GridView<dtype, dimension>::begin() const {
     return {_data, _grid_size_view._data + 1 };
 }
 
-template<class dtype, size_t dimension>
+template<class dtype, size_t dimension, typename Allocator=std::allocator<dtype>>
 class Grid: public GridView<dtype, dimension> {
+    using traits = std::allocator_traits<Allocator>;
     const std::array<size_t, dimension> _size;
+    Allocator alloc_;
 public:
-    Grid(std::array<size_t, dimension> dimensions);
-    ~Grid();
-    void reset();
+    Grid(std::array<size_t, dimension> dimensions):
+        _size(std::move(dimensions)),
+        GridView<dtype, dimension>(nullptr, this->_size)
+    {
+        this->_data = traits::allocate(alloc_, this->size());
+    }
+    Grid(const Grid& other) = delete;
+    Grid(Grid&& other): _size(std::move(other._size)), GridView<dtype, dimension>(other._data, this->_size) {
+        other._data = nullptr;
+    }
+    ~Grid() {
+        traits::deallocate(alloc_, this->_data, this->size());
+    }
+    void operator=(const Grid& other) {
+        assert(this->_size == other._size);
+        GridView<dtype, dimension>::operator=(other);
+    }
+    const std::array<size_t, dimension>& shape() const { return _size; }
 };
 
-class World {
-public:
-    using Grid = ::Grid<double, 2>;
-private:
-    Grid grid1, grid2;
-    Grid* current_grid, * other_grid;
-    double t = 0;
-    double dt;
-public:
-    World(std::size_t grid_height, std::size_t grid_width, double dt = 0.01):
-        grid1({grid_height, grid_width}), grid2({grid_height, grid_width}), dt(dt)
-    {
-        current_grid = &grid1;
-        other_grid = &grid2;
+struct CUDAMalloc {
+    static void* calloc(std::size_t size, std::size_t num);
+    static void free(void* mem);
+};
+
+template<typename T>
+struct CUDAAllocator {
+    using value_type = T;
+
+    T* allocate(std::size_t n) {
+        return static_cast<T*>(CUDAMalloc::calloc(n, sizeof(T)));
     }
-    void step();
-    void multi_step(unsigned N);
-    const Grid& grid() const { return *current_grid; }
-    inline void reset() { current_grid->reset(); }
-    void synchronize();
+
+    void deallocate(T* ptr, std::size_t n){
+        CUDAMalloc::free(ptr);
+    }
 };
