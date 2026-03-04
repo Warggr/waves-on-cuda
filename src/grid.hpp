@@ -2,6 +2,7 @@
 
 #include "ArrayView.hpp"
 #include <functional>
+#include <memory>
 #include <numeric>
 #include <cassert>
 #include <ostream>
@@ -129,7 +130,8 @@ public:
     friend class GridView<dtype, 2>;
 };
 
-std::ostream& operator<<(std::ostream& os, const std::array<double, 3>& vec);
+template<typename dtype>
+std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec);
 
 template<typename dtype, std::size_t dim>
 std::ostream& operator<<(std::ostream& os, const GridView<dtype, dim>& grid) {
@@ -156,43 +158,46 @@ GridViewIterator<dtype, dimension-1> GridView<dtype, dimension>::begin() const {
     return {_data, _grid_size_view._data + 1 };
 }
 
-class CUDAAllocator {
-public:
-    static void* calloc(std::size_t num, std::size_t size);
-    static void free(void* mem);
-};
-
-template<class dtype, size_t dimension>
+template<class dtype, size_t dimension, typename Allocator=std::allocator<dtype>>
 class Grid: public GridView<dtype, dimension> {
+    using traits = std::allocator_traits<Allocator>;
     const std::array<size_t, dimension> _size;
+    Allocator alloc_;
 public:
     Grid(std::array<size_t, dimension> dimensions):
         _size(std::move(dimensions)),
         GridView<dtype, dimension>(nullptr, this->_size)
     {
-        this->_data = static_cast<dtype*>(
-#ifdef NO_CUDA
-           calloc(
-#else
-           CUDAAllocator::calloc(
-#endif
-               this->size(), sizeof(dtype)));
+        this->_data = traits::allocate(alloc_, this->size());
     }
     Grid(const Grid& other) = delete;
     Grid(Grid&& other): _size(std::move(other._size)), GridView<dtype, dimension>(other._data, this->_size) {
         other._data = nullptr;
     }
     ~Grid() {
-#ifdef NO_CUDA
-           free(
-#else
-           CUDAAllocator::free(
-#endif
-        this->_data);
+        traits::deallocate(alloc_, this->_data, this->size());
     }
     void operator=(const Grid& other) {
         assert(this->_size == other._size);
         GridView<dtype, dimension>::operator=(other);
     }
     const std::array<size_t, dimension>& shape() const { return _size; }
+};
+
+struct CUDAMalloc {
+    static void* calloc(std::size_t size, std::size_t num);
+    static void free(void* mem);
+};
+
+template<typename T>
+struct CUDAAllocator {
+    using value_type = T;
+
+    T* allocate(std::size_t n) {
+        return static_cast<T*>(CUDAMalloc::calloc(n, sizeof(T)));
+    }
+
+    void deallocate(T* ptr, std::size_t n){
+        CUDAMalloc::free(ptr);
+    }
 };

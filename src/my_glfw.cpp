@@ -221,7 +221,7 @@ bool MyGLFW::closed() const {
     return _state == CLOSED;
 }
 
-void Renderer2D::set_grid(const Grid<double, 2>* grid_to_render) {
+void Renderer2D::set_grid(const GridView<double, 2>* grid_to_render) {
     GLfloat triangles[grid_to_render->shape()[0]-1][grid_to_render->shape()[1]-1][2][3][3];
 
     const float grid_dx = 1.0 / static_cast<float>(grid_to_render->shape()[0]),

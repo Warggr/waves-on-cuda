@@ -1,7 +1,7 @@
 add_library(scheme INTERFACE)
 target_include_directories(scheme INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(viewer my_glfw.cpp grid.cu)
+add_library(viewer my_glfw.cpp)
 target_link_libraries(viewer PUBLIC GL)
 target_link_libraries(viewer PRIVATE glfw)
 target_link_libraries(viewer PRIVATE GLEW::GLEW)
@@ -12,10 +12,13 @@ target_include_directories(viewer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(advection_scheme advection_scheme.cu)
 target_include_directories(advection_scheme PUBLIC scheme)
 
+
 option(NO_CUDA "Do not use CUDA." off)
 
+add_library(alloc grid.cu)
 if(NO_CUDA)
-    add_compile_definitions(viewer NO_CUDA)
+    target_compile_definitions(alloc PUBLIC NO_CUDA)
+else()
 endif()
 
 add_subdirectory(marching_cubes)

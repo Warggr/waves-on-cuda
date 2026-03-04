@@ -22,7 +22,7 @@ struct GRD_wrapper {
 #define XSTR(x) #x
 #define STR(x) XSTR(x)
 
-GRD_wrapper native_to_lib(const Grid<double, 3>& grid) {
+GRD_wrapper native_to_lib(const GridView<double, 3>& grid) {
 	GRD_wrapper result;
 	_GRD& lib_grid = result.lib_grid;
 	for(int j = 0; j < 3; j++){
@@ -57,7 +57,7 @@ GRD_wrapper native_to_lib(const Grid<double, 3>& grid) {
 namespace waves_on_cuda::marching_cubes {
 
 using geometry::Triangle;
-std::vector<Triangle<float>> marching_cubes(const Grid<double, 3>& grid, double isoLevel){
+std::vector<Triangle<float>> marching_cubes(const GridView<double, 3>& grid, double isoLevel){
 	GRD_wrapper Z = native_to_lib(grid);
 
 	surface* S;

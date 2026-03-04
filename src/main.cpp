@@ -1,6 +1,5 @@
 #include "grid.hpp"
 #include "viewer.hpp"
-#include "my_glfw.hpp"
 #include "scheme.hpp"
 #include "marching_cubes/renderer.hpp"
 #include "vof/vof.hpp"
@@ -86,6 +85,12 @@ int main(int argc, char* argv[]) {
     for(int i = 0; i < 3; i++){
         dims[i] = options.grid_size;
     }
+#ifdef NO_CUDA
+    using VOF = VOF<std::allocator>;
+#else
+    using VOF = VOF<>;
+#endif
+
     World<VOF::Grid, 3> world(dims, options.time_step);
     const VOF scheme;
     VOF::Grid initialGrid(dims);
@@ -104,7 +109,7 @@ int main(int argc, char* argv[]) {
             std::cout << runtime.count() << std::endl;
         }
     } else {
-        Viewer<Grid<double, 3>, Renderer3D> myGlfw;
+        Viewer<GridView<double, 3>, Renderer3D> myGlfw;
 
         const steady_clock::duration dt_as_duration = duration_cast<steady_clock::duration>(duration<float, std::milli>(1000 * options.time_step));
         auto tick_time = steady_clock::now();

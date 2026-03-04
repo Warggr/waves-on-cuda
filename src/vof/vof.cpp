@@ -19,7 +19,8 @@ Let's walk backwards.
 - i.e. we want u_trans on a staggered grid
 - So, we want u_i u_j on an i-staggered grid, but *also* on a y-staggered grid... unless we use a centered scheme, in which case we can have it on the cell center
 */
-::Grid<Speed, ndim> VOF::compute_transport_velocity(const StaggeredGrid& before, ::Grid<Speed, ndim> forces, std::array<double, 3> dx){
+template<template<typename> class allocator>
+::Grid<Speed, ndim, allocator<Speed>> VOF<allocator>::compute_transport_velocity(const StaggeredGrid& before, _Grid<Speed> forces, std::array<double, 3> dx){
     const auto inner_grid_shape = before.volume_fraction.shape();
     const auto inner_grid_indices = before.volume_fraction.indices();
     assert(before.volume_fraction.shape() == forces.shape());
@@ -39,7 +40,7 @@ Let's walk backwards.
         uiuj[1][i][j][k] = ujui + ujuk;
         uiuj[2][i][j][k] = ujuk + uiuk;
     }
-    ::Grid<Speed, ndim> u_trans(inner_grid_shape);
+    _Grid<Speed> u_trans(inner_grid_shape);
     for(const auto& idxs: inner_grid_indices){
         for(int dim = 0; dim < ndim; dim++){
             std::array<std::size_t, 3> plus = idxs, minus = idxs;
@@ -65,8 +66,9 @@ Let's walk backwards.
     return u_trans;
 }
 
-::Grid<double, ndim> VOF::compute_pressure(const ::Grid<double, ndim>& volume_fraction, const ::Grid<Speed, ndim>& u_trans, std::array<double, 3> dx) {
-    ::Grid<double, ndim> div_u(volume_fraction.shape());
+template<template<typename> class allocator>
+::Grid<double, ndim, allocator<double>> VOF<allocator>::compute_pressure(const _Grid<double>& volume_fraction, const _Grid<Speed>& u_trans, std::array<double, 3> dx) {
+    _Grid<double> div_u(volume_fraction.shape());
     for(const auto& idxs: div_u.indices()){
         for(int dim = 0; dim < ndim; dim++){
             std::array<std::size_t, 3> plus = idxs, minus = idxs;
@@ -123,23 +125,25 @@ Let's walk backwards.
     for(const auto& element: pressure_eig)
         assert(not std::isnan(element));
 
-    ::Grid<double, ndim> pressure(div_u.shape());
+    _Grid<double> pressure(div_u.shape());
     Map<VectorXd> map(pressure.data(), pressure.size());
     map = std::move(pressure_eig);
     return pressure;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::array<double, 3>& vec) {
+template<typename dtype>
+std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec) {
     os << '(';
     for(const auto& elem: vec) os << elem << ',';
     os << ')';
     return os;
 }
 
-void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, double dt) const {
+template<template<typename> class allocator>
+void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, double dt) const {
     std::array<double, 3> dx;
     for(int dim = 0; dim < 3; dim++) dx[dim] = 1.0 / before.volume_fraction.shape()[dim];
-    ::Grid<Speed, ndim> forces(before.volume_fraction.shape());
+    _Grid<Speed> forces(before.volume_fraction.shape());
     const double cell_volume = std::reduce(dx.begin(), dx.end(), 1, std::multiplies<double>{});
     for(const auto& idx: forces.indices()) {
         forces[idx][2] = -9.81 * rho(before.volume_fraction[idx]);
@@ -168,7 +172,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         }
     }
 
-    ::Grid<Speed, ndim> normals(before.volume_fraction.shape());
+    _Grid<Speed> normals(before.volume_fraction.shape());
     for(const auto& [i, j, k]: before.volume_fraction.indices()) {
         const auto cell_vf = before.volume_fraction[i][j][k];
         if(0 > cell_vf) {
@@ -215,7 +219,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         normals[i][j][k] = normal;
     }
 
-    ::Grid<std::array<float, ndim>, ndim> wall_sizes_early(before.volume_fraction.shape()),
+    _Grid<std::array<float, ndim>> wall_sizes_early(before.volume_fraction.shape()),
         wall_sizes_late(before.volume_fraction.shape());
     for(const auto& idxs: before.volume_fraction.indices()) {
         /*
@@ -405,7 +409,7 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         }
     }
 
-    ::Grid<std::array<double, ndim>, ndim> advected_volume_early(before.volume_fraction.shape()),
+    _Grid<std::array<double, ndim>> advected_volume_early(before.volume_fraction.shape()),
         advected_volume_late(before.volume_fraction.shape());
     for(const auto& idxs: before.volume_fraction.indices()) {
         for(int dim = 0; dim < ndim; dim++){
@@ -463,3 +467,9 @@ void VOF::step(const StaggeredGrid& before, StaggeredGrid& after, double _t, dou
         }
     }
 }
+
+#ifdef NO_CUDA
+template class VOF<std::allocator>;
+#else
+template class VOF<>;
+#endif

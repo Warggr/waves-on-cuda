@@ -11,7 +11,7 @@ static geometry::Point3D<float> convert(const ::Vertex& v) {
     return {{ v.x, v.y, v.z }};
 }
 
-std::vector<geometry::Triangle<float>> marching_cubes(const Grid<double, 3> &grid, double isoLevel) {
+std::vector<geometry::Triangle<float>> marching_cubes(const GridView<double, 3> &grid, double isoLevel) {
     MarchingCubes mc;
     auto shape = grid.shape();
     mc.set_resolution(shape[0], shape[1], shape[2]);

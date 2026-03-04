@@ -26,6 +26,6 @@ struct Triangle {
 
 }
 
-std::vector<geometry::Triangle<float>> marching_cubes(const Grid<double, 3>& grid, double isoLevel);
+std::vector<geometry::Triangle<float>> marching_cubes(const GridView<double, 3>& grid, double isoLevel);
 
 }

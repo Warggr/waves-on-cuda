@@ -45,7 +45,7 @@ bool interior_test(const std::array<float, NB_VERTICES>& v){
     return false;
 }
 
-void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& grid, std::vector<Triangle<float>>& out){
+void marching_cube(int x, int y, int z, double isoLevel, const GridView<double, 3>& grid, std::vector<Triangle<float>>& out){
     // Fetch 8 corner values
     std::array<float, NB_VERTICES> v;
     for(int i = 0; i < NB_VERTICES; i++){
@@ -109,7 +109,7 @@ void marching_cube(int x, int y, int z, double isoLevel, const Grid<double, 3>& 
     }
 }
 
-std::vector<Triangle<float>> marching_cubes(const Grid<double, 3>& grid, double isoLevel) {
+std::vector<Triangle<float>> marching_cubes(const GridView<double, 3>& grid, double isoLevel) {
     std::vector<Triangle<float>> out;
     {
 #ifdef TIMING
