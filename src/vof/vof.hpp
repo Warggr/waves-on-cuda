@@ -30,15 +30,15 @@ class VOF: public Scheme<StaggeredGrid<allocator<double>>, 3> {
 private:
     template<typename dtype>
     using _Grid = Grid<dtype, 3, allocator<dtype>>;
-    using StaggeredGrid = StaggeredGrid<allocator<double>>;
+    using _StaggeredGrid = StaggeredGrid<allocator<double>>;
     static _Grid<double> compute_pressure(const _Grid<double>& volume_fraction,
                                           const _Grid<Speed>& u_trans,
                                           std::array<double, 3> dx);
-    static _Grid<Speed> compute_transport_velocity(const StaggeredGrid& u,
+    static _Grid<Speed> compute_transport_velocity(const _StaggeredGrid& u,
                                                    _Grid<Speed> forces,
                                                    std::array<double, 3> dx);
 
 public:
-    void step(const StaggeredGrid& before, StaggeredGrid& after, double t,
+    void step(const _StaggeredGrid& before, _StaggeredGrid& after, double t,
               double dt) const override;
 };

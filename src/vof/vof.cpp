@@ -26,7 +26,7 @@ cell center
 */
 template<template<typename> class allocator>
 ::Grid<Speed, ndim, allocator<Speed>>
-VOF<allocator>::compute_transport_velocity(const StaggeredGrid& before,
+VOF<allocator>::compute_transport_velocity(const _StaggeredGrid& before,
                                            _Grid<Speed> forces,
                                            std::array<double, 3> dx) {
     const auto inner_grid_shape = before.volume_fraction.shape();
@@ -154,7 +154,7 @@ std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec) {
 }
 
 template<template<typename> class allocator>
-void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after,
+void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
                           double _t, double dt) const {
     std::array<double, 3> dx;
     for(int dim = 0; dim < 3; dim++)
@@ -481,7 +481,7 @@ void VOF<allocator>::step(const StaggeredGrid& before, StaggeredGrid& after,
         }
     }
 
-    StaggeredGrid advected_volume(before.volume_fraction.shape());
+    _StaggeredGrid advected_volume(before.volume_fraction.shape());
     for(int dim = 0; dim < ndim; dim++) {
         for(const auto& idxs: before.u[dim].indices()) {
             // [ i-1 ]  -|-> u_i [ i ]
