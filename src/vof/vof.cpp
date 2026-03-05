@@ -148,7 +148,7 @@ VOF<allocator>::compute_pressure(const _Grid<double>& volume_fraction,
 template<typename dtype>
 std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec) {
     os << '(';
-    for(const auto& elem: vec) os << elem << ',';
+    for(const dtype& elem: vec) os << elem << ',';
     os << ')';
     return os;
 }
