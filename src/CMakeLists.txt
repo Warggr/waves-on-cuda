@@ -42,3 +42,18 @@ target_link_libraries(waves Boost::program_options)
 target_link_libraries(waves mc_renderer)
 target_link_libraries(waves vof_scheme)
 target_link_libraries(waves viewer)
+
+option(NUMPY_LOAD "Load initial conditions from .npy files" on)
+
+if(NUMPY_LOAD)
+    include(FetchContent)
+    FetchContent_Declare(cnpy
+        GIT_REPOSITORY "https://github.com/Warggr/cnpy"
+        GIT_SHALLOW True
+    )
+    FetchContent_MakeAvailable(cnpy)
+    add_library(npz_loader npz_loader.cpp)
+    target_link_libraries(npz_loader cnpy)
+    target_link_libraries(waves npz_loader)
+    target_compile_definitions(waves PRIVATE NUMPY_LOAD)
+endif()

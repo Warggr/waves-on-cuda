@@ -8,6 +8,12 @@
 #include <iostream>
 #include <variant>
 
+#ifdef NUMPY_LOAD
+#include "npz_loader.hpp"
+#include <fstream>
+#include <stdexcept>
+#endif
+
 namespace po = boost::program_options;
 
 struct UIRunConfig {};
@@ -20,6 +26,9 @@ struct RunConfig {
     std::size_t grid_size = 100;
     double time_step = 0.01;
     std::variant<UIRunConfig, PerfRunConfig> specific_config;
+#ifdef NUMPY_LOAD
+    std::optional<std::string> input_file;
+#endif
 };
 
 RunConfig parse_options(int argc, char* argv[]) {
@@ -31,6 +40,9 @@ RunConfig parse_options(int argc, char* argv[]) {
         ("perf,p", "Run without GUI for [N] iterations to test performance")
         ("size,s", po::value<unsigned int>(), "Set grid size to s")
         ("timestep,t", po::value<double>())
+#ifdef NUMPY_LOAD
+        ("input,i", po::value<std::string>(), "Load initial conditions from input file")
+#endif
     ;
     // clang-format on
 
@@ -71,6 +83,11 @@ RunConfig parse_options(int argc, char* argv[]) {
     if(vm.count("timestep")) {
         config.time_step = vm["timestep"].as<double>();
     }
+#ifdef NUMPY_LOAD
+    if(vm.count("input")) {
+        config.input_file = vm["input"].as<std::string>();
+    }
+#endif
     return config;
 }
 
@@ -92,11 +109,17 @@ int main(int argc, char* argv[]) {
     World<VOF::Grid, 3> world(dims, options.time_step);
     const VOF scheme;
     VOF::Grid initialGrid(dims);
-    for(const auto& idxs: initialGrid.volume_fraction.indices()) {
-        if(idxs[2] < options.grid_size / 2) {
-            initialGrid.volume_fraction[idxs] = 1;
+#ifdef NUMPY_LOAD
+    if(options.input_file) {
+        std::ifstream file(options.input_file->c_str(),
+                           std::ios::binary | std::ios::in);
+        if(!file.is_open()) {
+            throw std::runtime_error("Couldn't open file!");
         }
+        Grid<double, 3> init = load<double, 3>(file);
+        initialGrid.volume_fraction = init;
     }
+#endif
     world.reset(initialGrid);
 
     auto config = std::get_if<PerfRunConfig>(&options.specific_config);
