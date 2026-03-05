@@ -7,6 +7,7 @@ using Triangle = geometry::Triangle<float>;
 
 class Renderer3D: public MyGLFW {
     float isoLevel;
+
 public:
     Renderer3D(float isoLevel = 0.5): isoLevel(isoLevel) {
     }
@@ -15,8 +16,8 @@ public:
         std::vector<GLfloat> vertex_data;
         vertex_data.reserve(triangles.size() * 9);
 
-        for (const auto& tri : triangles) {
-            for (const auto& p : tri.corners) {
+        for(const auto& tri: triangles) {
+            for(const auto& p: tri.corners) {
                 vertex_data.push_back(p.x);
                 vertex_data.push_back(p.y);
                 vertex_data.push_back(p.z);

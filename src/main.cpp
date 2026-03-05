@@ -1,6 +1,6 @@
 #include "grid.hpp"
-#include "viewer.hpp"
 #include "scheme.hpp"
+#include "viewer.hpp"
 #include "marching_cubes/renderer.hpp"
 #include "vof/vof.hpp"
 #include <boost/program_options.hpp>
@@ -10,8 +10,7 @@
 
 namespace po = boost::program_options;
 
-struct UIRunConfig {
-};
+struct UIRunConfig {};
 
 struct PerfRunConfig {
     std::vector<unsigned int> niters;
@@ -26,20 +25,20 @@ struct RunConfig {
 RunConfig parse_options(int argc, char* argv[]) {
     RunConfig config;
     po::options_description regular_options;
+    // clang-format off
     regular_options.add_options()
-        ("help,h",      "Show help")
-        ("perf,p","Run without GUI for [N] iterations to test performance")
-	("size,s", po::value<unsigned int>(), "Set grid size to s")
-	("timestep,t", po::value<double>())
+        ("help,h", "Show help")
+        ("perf,p", "Run without GUI for [N] iterations to test performance")
+        ("size,s", po::value<unsigned int>(), "Set grid size to s")
+        ("timestep,t", po::value<double>())
     ;
+    // clang-format on
 
     po::options_description hidden;
-    hidden.add_options()
-        ("niters", po::value<std::vector<unsigned int>>())
-    ;
+    hidden.add_options()("niters", po::value<std::vector<unsigned int>>());
 
     po::positional_options_description p;
-    p.add("niters",-1);
+    p.add("niters", -1);
 
     po::options_description desc("Allowed options");
     desc.add(regular_options);
@@ -48,31 +47,30 @@ RunConfig parse_options(int argc, char* argv[]) {
     cmdline_options.add(regular_options).add(hidden);
 
     po::variables_map vm;
-    po::store(
-        po::command_line_parser(argc, argv)
-            .positional(p)
-            .options(cmdline_options)
-            .run(),
-        vm);
+    po::store(po::command_line_parser(argc, argv)
+                  .positional(p)
+                  .options(cmdline_options)
+                  .run(),
+              vm);
     po::notify(vm);
 
-    if (vm.count("help")) {
+    if(vm.count("help")) {
         std::cout << desc << "\n";
         exit(1);
     }
-    if (vm.count("perf")) {
+    if(vm.count("perf")) {
         PerfRunConfig config_;
         config_.niters = vm["niters"].as<std::vector<unsigned int>>();
         config.specific_config = config_;
     } else {
         config.specific_config = UIRunConfig();
     }
-    if (vm.count("size")) {
+    if(vm.count("size")) {
         config.grid_size = vm["size"].as<unsigned int>();
     }
-	if (vm.count("timestep")) {
-		config.time_step = vm["timestep"].as<double>();
-	}
+    if(vm.count("timestep")) {
+        config.time_step = vm["timestep"].as<double>();
+    }
     return config;
 }
 
@@ -82,7 +80,7 @@ int main(int argc, char* argv[]) {
     using namespace std::chrono;
 
     std::array<std::size_t, 3> dims;
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < 3; i++) {
         dims[i] = options.grid_size;
     }
 #ifdef NO_CUDA
@@ -94,17 +92,17 @@ int main(int argc, char* argv[]) {
     World<VOF::Grid, 3> world(dims, options.time_step);
     const VOF scheme;
     VOF::Grid initialGrid(dims);
-    for(const auto& idxs: initialGrid.volume_fraction.indices()){
-        if(idxs[2] < options.grid_size / 2){
+    for(const auto& idxs: initialGrid.volume_fraction.indices()) {
+        if(idxs[2] < options.grid_size / 2) {
             initialGrid.volume_fraction[idxs] = 1;
         }
     }
     world.reset(initialGrid);
 
     auto config = std::get_if<PerfRunConfig>(&options.specific_config);
-    if (config) {
+    if(config) {
         std::cout << "#N,time[ms]" << std::endl;
-        for (const unsigned int niters : config->niters) {
+        for(const unsigned int niters: config->niters) {
             std::cout << niters << ",";
             world.reset(initialGrid);
             auto t1 = high_resolution_clock::now();
@@ -117,19 +115,20 @@ int main(int argc, char* argv[]) {
     } else {
         Viewer<GridView<double, 3>, Renderer3D> myGlfw;
 
-        const steady_clock::duration dt_as_duration = duration_cast<steady_clock::duration>(duration<float, std::milli>(1000 * options.time_step));
+        const steady_clock::duration dt_as_duration =
+            duration_cast<steady_clock::duration>(
+                duration<float, std::milli>(1000 * options.time_step));
         auto tick_time = steady_clock::now();
 
         try {
-            while (true) {
+            while(true) {
                 world.step(scheme);
                 synchronize();
                 myGlfw.render(world.grid().volume_fraction);
                 tick_time += dt_as_duration;
                 std::this_thread::sleep_until(tick_time);
             }
-        } catch (const Viewer<Grid<double, 3>, Renderer3D>::WindowClosed&) {
-
+        } catch(const Viewer<Grid<double, 3>, Renderer3D>::WindowClosed&) {
         }
     }
 }

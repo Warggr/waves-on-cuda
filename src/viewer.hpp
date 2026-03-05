@@ -6,29 +6,31 @@
 #include <thread>
 
 template<typename R, typename Grid>
-concept Renders =
-    requires(R r, const Grid& g) {
-        { r.set_grid(g) } -> std::same_as<void>;
-    };
+concept Renders = requires(R r, const Grid& g) {
+    { r.set_grid(g) } -> std::same_as<void>;
+};
 
 template<class WorldGrid, Renders<WorldGrid> Renderer>
 class Viewer {
 public:
-    struct WindowClosed : std::runtime_error {
-        WindowClosed(): std::runtime_error("window closed") {}
+    struct WindowClosed: std::runtime_error {
+        WindowClosed(): std::runtime_error("window closed") {
+        }
     };
+
 private:
     Renderer renderer;
     std::thread ui_thread;
     std::mutex mutex;
     const WorldGrid* grid_to_render = nullptr; // Protected by the mutex
     bool closed = false;
+
 public:
     Viewer() {
-        ui_thread = std::thread([this](){ this->thread_main(); });
+        ui_thread = std::thread([this]() { this->thread_main(); });
     }
     ~Viewer() {
-        if(ui_thread.joinable()){
+        if(ui_thread.joinable()) {
             {
                 std::lock_guard guard(mutex);
                 renderer.signal_should_close();
@@ -41,7 +43,7 @@ public:
         while(!renderer.closed()) {
             if(grid_to_render != nullptr) {
                 std::lock_guard guard(mutex);
-                if(grid_to_render != nullptr){ // Double checked locking
+                if(grid_to_render != nullptr) { // Double checked locking
                     renderer.set_grid(*grid_to_render);
                 }
             }
@@ -51,11 +53,12 @@ public:
     }
     void render(const WorldGrid& grid) {
         std::lock_guard guard(mutex);
-        if (closed) {
+        if(closed) {
             throw WindowClosed();
         }
-        grid_to_render = &grid; // TODO: maybe copy it so we don't render it while it's overwritten
+        grid_to_render = &grid; // TODO: maybe copy it so we don't render it
+                                // while it's overwritten
     }
 };
 
-#endif //VIEWER_H
+#endif // VIEWER_H

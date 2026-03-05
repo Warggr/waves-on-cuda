@@ -1,12 +1,12 @@
 #include "grid.hpp"
 #include "scheme.hpp"
-#include <stdexcept>
 #include <cassert>
+#include <stdexcept>
 
 void* CUDAMalloc::calloc(std::size_t num, std::size_t size) {
     void* mem;
     auto success = cudaMallocManaged(&mem, num * size);
-    if (success != cudaSuccess) {
+    if(success != cudaSuccess) {
         throw std::runtime_error(cudaGetErrorName(success));
     }
     memset(mem, 0, size);

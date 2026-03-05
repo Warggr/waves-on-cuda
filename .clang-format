@@ -1,0 +1,31 @@
+IndentWidth: 4
+PointerAlignment: Left
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+  AfterControlStatements: false
+  AfterFunctionDefinitionName: false
+SpaceAfterTemplateKeyword: false
+InsertNewlineAtEOF: true
+BreakTemplateDeclarations: Yes
+AllowAllArgumentsOnNextLine: true
+IndentAccessModifiers: false
+IndentCaseLabels: true
+SpaceBeforeInheritanceColon: false
+SpaceBeforeCtorInitializerColon: false
+SpaceBeforeRangeBasedForLoopColon: false
+SpaceBeforeCaseColon: false
+AccessModifierOffset: -4
+FixNamespaceComments: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+IncludeBlocks: Merge
+IncludeCategories:
+  - Regex: '^<.*/.*>'
+    Priority: 3
+  - Regex: '^<.*>'
+    Priority: 4
+  - Regex: '".*/.*"'
+    Priority: 2
+  - Regex: '".*"'
+    Priority: 1
