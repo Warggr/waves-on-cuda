@@ -1,5 +1,5 @@
-set(WHICH_MC33 "Which MC33 library to use" CACHE STRING "Own")
-set_property(CACHE MC33 PROPERTY STRINGS
+set(WHICH_MC33 "Own" CACHE STRING "Which MC33 library to use")
+set_property(CACHE WHICH_MC33 PROPERTY STRINGS
 	"Own"
 	"DVega"
 	"LCustodio"

@@ -217,8 +217,9 @@ public:
     ~Grid() {
         traits::deallocate(alloc_, this->_data, this->size());
     }
+    using GridView<dtype, dimension>::operator=;
+    // Explicitly override the implicitly deleted operator=
     void operator=(const Grid& other) {
-        assert(this->_size == other._size);
         GridView<dtype, dimension>::operator=(other);
     }
     const std::array<size_t, dimension>& shape() const {
