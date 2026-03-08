@@ -33,10 +33,22 @@ def get_drop(size: int, buffer: np.ndarray):
     buffer[math.ceil(size / 2), math.ceil(size / 2), math.ceil(size / 2)] = 1.0
 
 
-size = 10
+@register_scenario
+def get_wave(size: int, buffer: np.ndarray):
+    buffer.fill(0)
+    for i in range(size):
+        height = size / 2 + size / 4 * math.sin(i / size)
+        buffer[i, :, : math.floor(height)] = 1.0
+        buffer[i, :, math.floor(height)] = height - math.floor(height)
 
-for name, fun in scenarios.items():
-    buffer = np.zeros((size, size, size))
-    fun(size, buffer)
-    with open(f"data/{name}.npy", "wb") as file:
-        np.save(file, buffer)
+
+if __name__ == "__main__":
+    import sys
+
+    size = int(sys.argv[1])
+
+    for name, fun in scenarios.items():
+        buffer = np.zeros((size, size, size))
+        fun(size, buffer)
+        with open(f"data/{name}.npy", "wb") as file:
+            np.save(file, buffer)
