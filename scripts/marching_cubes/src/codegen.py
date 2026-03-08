@@ -3,36 +3,44 @@ from collections.abc import Sequence
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import numpy as np
+from typing import get_origin, get_args, Annotated
+from .type_hints import Array
 
 
-def type_to_ctype(t):
+def type_to_ctype(t) -> tuple[str, str]:
     if t in (int,):
         return "int", ""
     elif t in (float,):
         return "float", ""
     elif t in (bool,):
         return "bool", ""
-    elif t in (np.dtype('u1'),):
+    elif t in (np.dtype("u1"),):
         return "unsigned char", ""
-    elif t in (np.dtype('u4'),):
+    elif t in (np.dtype("u4"),):
         return "unsigned int", ""
-    elif type(t) is tuple:
-        base, shape = t
-        base, suff = type_to_ctype(base)
-        if type(shape) is int:
-            base = f'std::array<{base}, {shape}>'
+    elif get_origin(t) is not None:
+        metatype = get_origin(t)
+        if metatype is Array:
+            base, shape = get_args(t)
+            base, suff = type_to_ctype(base)
+            if type(shape) is int:
+                base = f"std::array<{base}, {shape}>"
+            else:
+                for d in reversed(shape):
+                    base = f"std::array<{base}, {d}>"
+            return base, suff
+        elif metatype is Annotated:
+            base, extras = get_args(t)
+            base, suff = type_to_ctype(base)
+            assert suff == ""
+            return base, f": {extras['bits']}"
         else:
-            for d in reversed(shape):
-                base = f'std::array<{base}, {d}>'
-        return base, suff
-    elif type(t) is dict:
-        base, suff = type_to_ctype(t["base"])
-        assert suff == ""
-        return base, f": {t['bits']}"
+            raise ValueError(repr(t))
     elif type(t) is type:
-        return 'struct ' + t.__name__, ''
+        return "struct " + t.__name__, ""
     else:
         raise ValueError(repr(t))
+
 
 def c_struct_def(cls, name):
     assert is_dataclass(cls)
@@ -57,7 +65,7 @@ def c_init(value, indent=0) -> str:
     elif isinstance(value, (int, float)):
         result = str(value)
     elif isinstance(value, str):
-        result = f"\"{value}\""
+        result = f'"{value}"'
     elif is_dataclass(value):
         parts = []
         for f in fields(value):
@@ -75,8 +83,12 @@ def c_init(value, indent=0) -> str:
 
 
 def get_c_lib(**kwargs):
-    env = Environment(loader=FileSystemLoader(Path(__file__).parent.parent), trim_blocks=True, lstrip_blocks=True)
-    env.globals['c_init'] = c_init
+    env = Environment(
+        loader=FileSystemLoader(Path(__file__).parent.parent),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    env.globals["c_init"] = c_init
     template = env.get_template("cache.cpp.jinja")
     output = template.render(**kwargs)
     return output
@@ -87,16 +99,18 @@ def get_c_header():
     from . import structures
 
     for symbol, obj in vars(structures).items():
-        if symbol.startswith('__') or str(type(obj)) == "<class 'module'>":
+        if symbol.startswith("__") or str(type(obj)) == "<class 'module'>":
             continue
-        if hasattr(obj, '__module__') and not obj.__module__.endswith("structures"):
+        if hasattr(obj, "__module__") and not obj.__module__.endswith("structures"):
             continue
         if type(obj) in (int, float):
             output.append(f"constexpr {type(obj).__name__} {symbol} = {obj};")
         elif type(obj) is type:
             output.append(c_struct_def(obj, symbol))
-    output.append("extern struct LookupTable lookup_table; extern struct CubeGeometry cube_geometry;")
-    return '\n'.join(output)
+    output.append(
+        "extern struct LookupTable lookup_table; extern struct CubeGeometry cube_geometry;"
+    )
+    return "\n".join(output)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ from .rotations import (
 )
 from .structures import Case, CasePtr, EdgeDef, LookupTable, Subcase, SubcasePtr
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
@@ -47,10 +47,12 @@ class Triangulation(Generic[T]):
             for triangle_of_indices in self.triangles
         ]
 
+
 CENTER = "center"
 
 EdgeIndex: TypeAlias = int
-Midpoint: TypeAlias = tuple[int, int]|Literal["center"]
+Midpoint: TypeAlias = tuple[int, int] | Literal["center"]
+
 
 def corner(i) -> Triangulation[Midpoint]:
     corners = (
@@ -69,13 +71,15 @@ def cyclic_pairwise(li: list):
 
 def quadrangle(*vertices: Midpoint):
     assert len(vertices) == 4
-    return Triangulation(points=vertices, triangles=[(0,1,2),(0,2,3)])
+    return Triangulation(points=vertices, triangles=[(0, 1, 2), (0, 2, 3)])
 
 
 def center_surface(*args: Midpoint) -> Triangulation:
     return Triangulation(
         points=[CENTER, *args],
-        triangles=[(a+1, b+1, 0) for a, b in cyclic_pairwise(list(range(len(args))))]
+        triangles=[
+            (a + 1, b + 1, 0) for a, b in cyclic_pairwise(list(range(len(args))))
+        ],
     )
 
 
@@ -90,21 +94,30 @@ subcase_by_name: dict[str, Triangulation] = {}
 CENTER_EDGEINDEX = 12
 
 edges_by_name: dict[Midpoint, EdgeIndex] = edge_vertex_adjacency()
-edges_by_name['center'] = CENTER_EDGEINDEX
+edges_by_name["center"] = CENTER_EDGEINDEX
 
-def add_subcase(test_bits: int, triangulation: Triangulation[Midpoint], name=None) -> tuple[int, int]:
-    triangles = [ tuple(edges_by_name[corner] for corner in triangle) for triangle in triangulation.get_triangles()]
+
+def add_subcase(
+    test_bits: int, triangulation: Triangulation[Midpoint], name=None
+) -> tuple[int, int]:
+    triangles = [
+        tuple(edges_by_name[corner] for corner in triangle)
+        for triangle in triangulation.get_triangles()
+    ]
     subcase = Subcase(triangles=triangles, num_triangles=len(triangles))
     if name is not None:
         subcase_by_name[name] = triangulation
     all_subcases.append(subcase)
     return test_bits, len(all_subcases) - 1
 
+
 def add_case(bits: int, tests, subcases: list[tuple[int, int]]) -> None:
     all_cases.append((bits, Case(tests=tests, num_tests=len(tests), subcases=subcases)))
 
+
 def add_simple_case(bits: int, subcase: Triangulation[Midpoint], name=None):
     add_case(bits, tests=[], subcases=[add_subcase(0, subcase, name=name)])
+
 
 CENTER_TEST = 6
 
@@ -116,145 +129,257 @@ add_simple_case(0, Triangulation.empty())
 add_simple_case(bitmask(0), corner(0))
 
 # Case 2
-add_simple_case(bitmask(0, 1),
-    quadrangle((0, 2), (0, 4), (1, 5), (1, 3))
-)
+add_simple_case(bitmask(0, 1), quadrangle((0, 2), (0, 4), (1, 5), (1, 3)))
 
 # Case 3
 # Rotated so that it'a precursor to case 7.
-add_case(bitmask(2,4), tests=[face_containing_corners(2,4)], subcases=[
-    add_subcase(0, corner(2) + corner(4), '3a'),
-    add_subcase(1, quadrangle((2, 3), (2, 6), (6, 4), (4, 5)) + quadrangle((4, 5), (4, 0), (0, 2), (2, 3)), '3b'),
-])
+add_case(
+    bitmask(2, 4),
+    tests=[face_containing_corners(2, 4)],
+    subcases=[
+        add_subcase(0, corner(2) + corner(4), "3a"),
+        add_subcase(
+            1,
+            quadrangle((2, 3), (2, 6), (6, 4), (4, 5))
+            + quadrangle((4, 5), (4, 0), (0, 2), (2, 3)),
+            "3b",
+        ),
+    ],
+)
 
 # Case 4
 case4a = corner(0) + corner(7)
-add_case(bitmask(0,7), tests=[CENTER_TEST], subcases=[
-    add_subcase(0, case4a, name='4a'),
-    add_subcase(1, Triangulation(case4a.points, [(2, 0, 4), (2, 4, 3), (1, 2, 3), (1, 3, 5), (0, 1, 5), (5, 4, 0)])),
-])
+add_case(
+    bitmask(0, 7),
+    tests=[CENTER_TEST],
+    subcases=[
+        add_subcase(0, case4a, name="4a"),
+        add_subcase(
+            1,
+            Triangulation(
+                case4a.points,
+                [(2, 0, 4), (2, 4, 3), (1, 2, 3), (1, 3, 5), (0, 1, 5), (5, 4, 0)],
+            ),
+        ),
+    ],
+)
 
 # Case 5
 top_points = [(1, 5), (3, 7), (2, 6)]
-add_simple_case(bitmask(1,2,3), Triangulation(top_points, [(0, 1, 2)]) + quadrangle((0,1), (1,5), (2,6), (0,2)), name='5')
+add_simple_case(
+    bitmask(1, 2, 3),
+    Triangulation(top_points, [(0, 1, 2)]) + quadrangle((0, 1), (1, 5), (2, 6), (0, 2)),
+    name="5",
+)
 
 # Case 6
 midpoints = (0, 2), (0, 4), (1, 5), (1, 3), (6, 7), (7, 3), (7, 5)
-case62 = Triangulation(midpoints, [(1,2,6), (1,6,4), (0,1,4), (0,4,3), (3,4,5)])
+case62 = Triangulation(
+    midpoints, [(1, 2, 6), (1, 6, 4), (0, 1, 4), (0, 4, 3), (3, 4, 5)]
+)
 _, subcase_62 = add_subcase(None, case62)
-add_case(bitmask(7,1,0), tests=[face_containing_corners(1, 3, 5, 7), CENTER_TEST], subcases=[
-    add_subcase(0, Triangulation(midpoints, [(0, 1, 2), (0, 2, 3), (4, 5, 6)])),
-    add_subcase(1, case62 + quadrangle(midpoints[2], midpoints[3], midpoints[5], midpoints[6])),
-    (2, subcase_62), (3, subcase_62),
-])
+add_case(
+    bitmask(7, 1, 0),
+    tests=[face_containing_corners(1, 3, 5, 7), CENTER_TEST],
+    subcases=[
+        add_subcase(0, Triangulation(midpoints, [(0, 1, 2), (0, 2, 3), (4, 5, 6)])),
+        add_subcase(
+            1,
+            case62 + quadrangle(midpoints[2], midpoints[3], midpoints[5], midpoints[6]),
+        ),
+        (2, subcase_62),
+        (3, subcase_62),
+    ],
+)
 
 # Case 7
 # Rotated so that the center test is still 0-7
-big_surface_edges=[(3,2), (2,6), (6,4), (4,5), (5,1), (1,3)]
-big_surface = Triangulation(big_surface_edges, triangles=[(0,1,2),(2,3,4),(4,5,0),(0,2,4)])
+big_surface_edges = [(3, 2), (2, 6), (6, 4), (4, 5), (5, 1), (1, 3)]
+big_surface = Triangulation(
+    big_surface_edges, triangles=[(0, 1, 2), (2, 3, 4), (4, 5, 0), (0, 2, 4)]
+)
 # The corners of the three corner triangles, anticlockwise,
 # with the edge to the center triangle first.
 corners = [
-    ((0,2),(2,3),(2,6)),
-    ((0,4),(4,6),(4,5)),
-    ((0,1),(1,5),(1,3)),
+    ((0, 2), (2, 3), (2, 6)),
+    ((0, 4), (4, 6), (4, 5)),
+    ((0, 1), (1, 5), (1, 3)),
 ]
 case742 = Triangulation.empty()
 for this_triangle, next_triangle in cyclic_pairwise(corners):
-    case742 += Triangulation(this_triangle, [(0,1,2)])
-    case742 += quadrangle(this_triangle[2], this_triangle[0], next_triangle[0], next_triangle[1])
-subcases=[
-    add_subcase(None, subcase_by_name['3a'] + corner(3), '7a'),
-    add_subcase(None, subcase_by_name['3b'] + corner(3), '7b'),
-    add_subcase(None, center_surface((2,0), (0,4), (0,1), (3,1), (1,5), (5,4), (4,6), (2,6), (2,3)), '7c'),
+    case742 += Triangulation(this_triangle, [(0, 1, 2)])
+    case742 += quadrangle(
+        this_triangle[2], this_triangle[0], next_triangle[0], next_triangle[1]
+    )
+subcases = [
+    add_subcase(None, subcase_by_name["3a"] + corner(3), "7a"),
+    add_subcase(None, subcase_by_name["3b"] + corner(3), "7b"),
+    add_subcase(
+        None,
+        center_surface(
+            (2, 0), (0, 4), (0, 1), (3, 1), (1, 5), (5, 4), (4, 6), (2, 6), (2, 3)
+        ),
+        "7c",
+    ),
 ]
-add_case(bitmask(2,1,4),
-    tests=[face_containing_corners(2,0,6,4), face_containing_corners(1,0,5,4), face_containing_corners(0,1,2,3), CENTER_TEST],
+add_case(
+    bitmask(2, 1, 4),
+    tests=[
+        face_containing_corners(2, 0, 6, 4),
+        face_containing_corners(1, 0, 5, 4),
+        face_containing_corners(0, 1, 2, 3),
+        CENTER_TEST,
+    ],
     subcases=[
-        (bitmask(), subcases[0][1]), (bitmask(3), subcases[0][1]),
-        (bitmask(0), subcases[1][1]), (bitmask(0,3), subcases[1][1]),
-        (bitmask(0,1), subcases[2][1]), (bitmask(0,1,3), subcases[2][1]),
-        add_subcase(bitmask(0,1,2), big_surface + corner(0), '7d'),
-        add_subcase(bitmask(0,1,2,3), case742, '7e'),
-    ]
+        (bitmask(), subcases[0][1]),
+        (bitmask(3), subcases[0][1]),
+        (bitmask(0), subcases[1][1]),
+        (bitmask(0, 3), subcases[1][1]),
+        (bitmask(0, 1), subcases[2][1]),
+        (bitmask(0, 1, 3), subcases[2][1]),
+        add_subcase(bitmask(0, 1, 2), big_surface + corner(0), "7d"),
+        add_subcase(bitmask(0, 1, 2, 3), case742, "7e"),
+    ],
 )
 
 # Case 8
 add_simple_case(bitmask(0, 1, 2, 3), quadrangle((0, 4), (1, 5), (3, 7), (2, 6)))
 
 # Case 9
-add_simple_case(bitmask(0, 1, 2, 4), quadrangle((1, 3), (2, 3), (2,6), (1,5)) + quadrangle((1,5), (4,5), (4,6), (2,6)))
+add_simple_case(
+    bitmask(0, 1, 2, 4),
+    quadrangle((1, 3), (2, 3), (2, 6), (1, 5))
+    + quadrangle((1, 5), (4, 5), (4, 6), (2, 6)),
+)
 
 # Case 10
 a, b = ((0, 1), (0, 2), (4, 6), (4, 5)), ((3, 2), (3, 1), (7, 5), (7, 6))
 case1011 = quadrangle(*a) + quadrangle(*b)
 b_mirrored = [a[1], a[0], a[3], a[2]]
-case1012 = sum((quadrangle(a, b, d, c) for (a, b), (c, d) in zip(cyclic_pairwise(b), cyclic_pairwise(b_mirrored))), start=Triangulation.empty())
+case1012 = sum(
+    (
+        quadrangle(a, b, d, c)
+        for (a, b), (c, d) in zip(cyclic_pairwise(b), cyclic_pairwise(b_mirrored))
+    ),
+    start=Triangulation.empty(),
+)
 points = a[1:] + a[:1] + b[1:] + b[:1]
 case102 = center_surface(*points)
-add_case(bitmask(0, 3, 4, 7), tests=[CENTER_TEST, face_containing_corners(0,1,2,3), face_containing_corners(4,5,6,7)], subcases=[
-    add_subcase(0, case1011),
-    add_subcase(1, case1012),
-    add_subcase(2, case102),
-])
+add_case(
+    bitmask(0, 3, 4, 7),
+    tests=[
+        CENTER_TEST,
+        face_containing_corners(0, 1, 2, 3),
+        face_containing_corners(4, 5, 6, 7),
+    ],
+    subcases=[
+        add_subcase(0, case1011),
+        add_subcase(1, case1012),
+        add_subcase(2, case102),
+    ],
+)
 
 # Case 11
-points=[(0,1),(0,4),(2,6),(6,7),(7,5),(3,1)]
-add_simple_case(bitmask(0,2,3,7),
-    Triangulation(points, triangles=[(0,1,2),(2,3,4),(4,5,0),(0,2,4)])
+points = [(0, 1), (0, 4), (2, 6), (6, 7), (7, 5), (3, 1)]
+add_simple_case(
+    bitmask(0, 2, 3, 7),
+    Triangulation(points, triangles=[(0, 1, 2), (2, 3, 4), (4, 5, 0), (0, 2, 4)]),
 )
 
 # Case 12
-points=[(0,4), (4,6), (4,5), (5,1), (3,7), (2,6), (0,2), (0,1)]
-add_case(bitmask(1,2,3,4), tests=[
-    face_containing_corners(1,4),
-    face_containing_corners(2,4),
-], subcases=[
-    add_subcase(0, subcase_by_name['5'] + corner(4)),
-    add_subcase(3, Triangulation(
-        points=points,
-        triangles=[(0,1,6),(0,6,7),(0,7,2),(2,7,3),(2,3,4),(2,4,1),(1,4,5),(1,5,6)],
-    )),
-    add_subcase(1, center_surface(*points)),
-    add_subcase(2, center_surface((0,1), (1,5), (3,7), (2,6), (4,6), (4,5), (0,4), (0,2))),
-    # 12.3 is 12.2 mirrored
-])
+points = [(0, 4), (4, 6), (4, 5), (5, 1), (3, 7), (2, 6), (0, 2), (0, 1)]
+add_case(
+    bitmask(1, 2, 3, 4),
+    tests=[
+        face_containing_corners(1, 4),
+        face_containing_corners(2, 4),
+    ],
+    subcases=[
+        add_subcase(0, subcase_by_name["5"] + corner(4)),
+        add_subcase(
+            3,
+            Triangulation(
+                points=points,
+                triangles=[
+                    (0, 1, 6),
+                    (0, 6, 7),
+                    (0, 7, 2),
+                    (2, 7, 3),
+                    (2, 3, 4),
+                    (2, 4, 1),
+                    (1, 4, 5),
+                    (1, 5, 6),
+                ],
+            ),
+        ),
+        add_subcase(1, center_surface(*points)),
+        add_subcase(
+            2,
+            center_surface(
+                (0, 1), (1, 5), (3, 7), (2, 6), (4, 6), (4, 5), (0, 4), (0, 2)
+            ),
+        ),
+        # 12.3 is 12.2 mirrored
+    ],
+)
 
 IMPOSSIBLE = 255
 
 # Case 13
 center_independent_subcases = [
-    add_subcase(bitmask(), subcase_by_name['7a'] + corner(7)),
-    add_subcase(bitmask(4), subcase_by_name['7b'] + corner(7)),
-    add_subcase(bitmask(4,2), subcase_by_name['7c'] + corner(7)),
-    add_subcase(bitmask(1,2,4), center_surface((2,0),(2,6),(6,7),(6,4),(4,0),(4,5),(5,7),(5,1),(1,0),(1,3),(3,7), (2,3))),
-    (bitmask(0,1), IMPOSSIBLE),
+    add_subcase(bitmask(), subcase_by_name["7a"] + corner(7)),
+    add_subcase(bitmask(4), subcase_by_name["7b"] + corner(7)),
+    add_subcase(bitmask(4, 2), subcase_by_name["7c"] + corner(7)),
+    add_subcase(
+        bitmask(1, 2, 4),
+        center_surface(
+            (2, 0),
+            (2, 6),
+            (6, 7),
+            (6, 4),
+            (4, 0),
+            (4, 5),
+            (5, 7),
+            (5, 1),
+            (1, 0),
+            (1, 3),
+            (3, 7),
+            (2, 3),
+        ),
+    ),
+    (bitmask(0, 1), IMPOSSIBLE),
     # The reverse case is also necessary because there are two chiral three-face strips with regards to the 1s and 0s
-    (bitmask(0,1,2), IMPOSSIBLE), (bitmask(3,4,5), IMPOSSIBLE),
+    (bitmask(0, 1, 2), IMPOSSIBLE),
+    (bitmask(3, 4, 5), IMPOSSIBLE),
 ]
 subcases = []
 for bitset, subcase in center_independent_subcases:
     subcases.append((bitset, subcase))
-    subcases.append((bitset|(1 << 6), subcase))
+    subcases.append((bitset | (1 << 6), subcase))
 subcases += [
-    add_subcase(bitmask(0,4,2), subcase_by_name['7e'] + corner(6)),
-    add_subcase(bitmask(0,4,2,6), subcase_by_name['7d'] + corner(6)),
+    add_subcase(bitmask(0, 4, 2), subcase_by_name["7e"] + corner(6)),
+    add_subcase(bitmask(0, 4, 2, 6), subcase_by_name["7d"] + corner(6)),
 ]
-add_case(bitmask(2,1,4,7), tests=[
-    *range(6), # All cubes faces, in the order bottom-up-front-back-left-right
-    CENTER_TEST
-], subcases=subcases)
+add_case(
+    bitmask(2, 1, 4, 7),
+    tests=[
+        *range(6),  # All cubes faces, in the order bottom-up-front-back-left-right
+        CENTER_TEST,
+    ],
+    subcases=subcases,
+)
 
 # Case 14 (mirror of 11)
-points=[(0,1),(1,5),(3,7),(6,7),(6,4),(2,0)]
-add_simple_case(bitmask(1,2,3,6),
-    Triangulation(points, triangles=[(2,1,0),(4,3,2),(0,5,4),(4,2,0)])
+points = [(0, 1), (1, 5), (3, 7), (6, 7), (6, 4), (2, 0)]
+add_simple_case(
+    bitmask(1, 2, 3, 6),
+    Triangulation(points, triangles=[(2, 1, 0), (4, 3, 2), (0, 5, 4), (4, 2, 0)]),
 )
 
 
 def resolve(t: EdgeDef) -> tuple[Point3D, Point3D]:
-    if t == 'center':
-        return 'center'
+    if t == "center":
+        return "center"
     return tuple(index_to_corner[j] for j in t)
 
 
@@ -262,7 +387,7 @@ case_table: list[CasePtr] = [None for _ in range(256)]
 
 for i, (bitset, case) in enumerate(all_cases):
     neutral_rotations: set[tuple[int, bool]] = {
-        (0, False) # The identity rotation at index 0 is neutral.
+        (0, False)  # The identity rotation at index 0 is neutral.
     }
 
     for perm_i, perm in enumerate(all_permutations()):
@@ -278,14 +403,12 @@ for i, (bitset, case) in enumerate(all_cases):
                 all_permutations()[case_ptr.permutation],
             )
             neutral_rotation_id = all_permutations().index(neutral_rotation)
-            neutral_rotations.add(
-                (neutral_rotation_id, case_ptr.sign_flip)
-            )
+            neutral_rotations.add((neutral_rotation_id, case_ptr.sign_flip))
         else:
             case_table[permuted_bitset] = CasePtr(i, perm_i, sign_flip=False)
             case_table[(~permuted_bitset) % 256] = CasePtr(i, perm_i, sign_flip=True)
 
-    subcases = [None for _ in range(2**len(case.tests))]
+    subcases = [None for _ in range(2 ** len(case.tests))]
 
     for subcase_test_results, subcase in case.subcases:
         for rotation_id, sign_flip in neutral_rotations:
@@ -294,10 +417,14 @@ for i, (bitset, case) in enumerate(all_cases):
             test_rotation = [case.tests.index(test) for test in rotated_tests]
             rotated_test_results = permute_bitset(subcase_test_results, test_rotation)
             if sign_flip:
-                rotated_test_results = (~rotated_test_results) % (1 << len(rotated_tests))
+                rotated_test_results = (~rotated_test_results) % (
+                    1 << len(rotated_tests)
+                )
             if subcases[rotated_test_results] is None:
                 assert isinstance(subcase, int)
-                subcases[rotated_test_results] = SubcasePtr(subcase, rotation_id, sign_flip)
+                subcases[rotated_test_results] = SubcasePtr(
+                    subcase, rotation_id, sign_flip
+                )
     assert all(i is not None for i in subcases)
     case.subcases = subcases
 

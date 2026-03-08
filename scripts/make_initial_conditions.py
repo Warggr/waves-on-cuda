@@ -18,19 +18,20 @@ def get_full(size: int, buffer: np.ndarray):
 @register_scenario
 def get_still(size: int, buffer: np.ndarray):
     buffer[:, :, :] = 0.0
-    buffer[:, :, :math.floor(size/2)] = 1.0
+    buffer[:, :, : math.floor(size / 2)] = 1.0
 
 
 @register_scenario
 def get_dambreak(size: int, buffer: np.ndarray):
     buffer[:, :, :] = 0.0
-    buffer[:, :math.ceil(size/5), :] = 1.0
+    buffer[:, : math.ceil(size / 5), :] = 1.0
 
 
 @register_scenario
 def get_drop(size: int, buffer: np.ndarray):
     buffer.fill(0)
-    buffer[math.ceil(size/2), math.ceil(size/2), math.ceil(size/2)] = 1.0
+    buffer[math.ceil(size / 2), math.ceil(size / 2), math.ceil(size / 2)] = 1.0
+
 
 size = 10
 
