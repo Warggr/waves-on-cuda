@@ -82,15 +82,18 @@ std::vector<Triangle<float>> marching_cubes(const GridView<double, 3>& grid,
     if(S->nT == -1)
         return result;
 
+    // The lib appears to take the grid in Fortran-like order.
+    // We can't change the actual order (don't want to copy data),
+    // so we change the order of dimensions when copying back the triangles.
     for(int n = S->nT; n != 0; n--) {
         int* t = getTriangle(S, n);
         Triangle<float> tri;
 
         for(int j = 0; j < 3; j++) {
             float* vertex = getVertex(S, t[j]);
-            tri.corners[j].x = vertex[0];
+            tri.corners[j].z = vertex[0];
             tri.corners[j].y = vertex[1];
-            tri.corners[j].z = vertex[2];
+            tri.corners[j].x = vertex[2];
             // getNormal(S,t[j]);
         }
         result.push_back(tri);

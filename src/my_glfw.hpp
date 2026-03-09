@@ -17,7 +17,7 @@ protected:
     state _state = UNINITIALIZED;
     GLFWwindow* window = nullptr;
 
-    float yaw = -45.0f, pitch = 0;
+    float yaw = 0, pitch = -45.0f;
     glm::vec3 cameraPos = glm::vec3(-1.0f, 0.0f, 1.0f);
     glm::vec3 cameraFront = -cameraPos;
     glm::vec3 cameraUp = glm::vec3(0.0f, 0.0f, 1.0f);
