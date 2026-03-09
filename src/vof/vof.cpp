@@ -76,10 +76,9 @@ VOF<allocator>::compute_transport_velocity(const _StaggeredGrid& before,
 }
 
 template<template<typename> class allocator>
-::Grid<double, ndim, allocator<double>>
-VOF<allocator>::compute_pressure(const _Grid<double>& volume_fraction,
-                                 const _Grid<Speed>& u_trans,
-                                 std::array<double, 3> dx) {
+::Grid<double, ndim, allocator<double>> VOF<allocator>::compute_pressure(
+    const _Grid<double>& volume_fraction, const _Grid<Speed>& u_trans,
+    std::array<double, 3> dx, const GridView<double, ndim> previous_pressure) {
     _Grid<double> div_u(volume_fraction.shape());
     for(const auto& idxs: div_u.indices()) {
         for(int dim = 0; dim < ndim; dim++) {
@@ -135,7 +134,9 @@ VOF<allocator>::compute_pressure(const _Grid<double>& volume_fraction,
     LeastSquaresConjugateGradient<SparseMatrix<double>> cg;
     cg.compute(A);
     Map<VectorXd> rhs(div_u.data(), div_u.size());
-    VectorXd pressure_eig = cg.solve(rhs);
+    Map<const VectorXd> previous_pressure_eig(previous_pressure.data(),
+                                              previous_pressure.size());
+    VectorXd pressure_eig = cg.solveWithGuess(rhs, previous_pressure_eig);
     pressure_eig.array() -= pressure_eig.mean();
     for(const auto& element: pressure_eig) assert(not std::isnan(element));
 
@@ -167,9 +168,10 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
     }
 
     auto u_trans = compute_transport_velocity(before, std::move(forces), dx);
-    auto pressure = compute_pressure(before.volume_fraction, u_trans, dx);
-    for(const auto& idxs: pressure.indices()) {
-        assert(not std::isnan(pressure[idxs]));
+    after.pressure =
+        compute_pressure(before.volume_fraction, u_trans, dx, before.pressure);
+    for(const auto& idxs: after.pressure.indices()) {
+        assert(not std::isnan(after.pressure[idxs]));
     }
 
     for(int dim = 0; dim < ndim; dim++) {
@@ -182,7 +184,8 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
                 minus[dim]--;
                 after.u[dim][idxs] =
                     before.u[dim][idxs] +
-                    dt * (pressure[minus] - pressure[idxs]) / dx[dim] /
+                    dt * (after.pressure[minus] - after.pressure[idxs]) /
+                        dx[dim] /
                         (rho(before.volume_fraction[minus]) +
                          rho(before.volume_fraction[idxs])) *
                         2 +
