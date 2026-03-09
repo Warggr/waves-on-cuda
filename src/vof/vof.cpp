@@ -42,9 +42,9 @@ VOF<allocator>::compute_transport_velocity(const _StaggeredGrid& before,
         double uj = (before.u[1][i][j][k] + before.u[1][i][j + 1][k]) / 2;
         double uk = (before.u[2][i][j][k] + before.u[2][i][j][k + 1]) / 2;
         double ujuk = uj * uk, ujui = uj * ui, uiuk = ui * uk;
-        uiuj[0][i][j][k] = ujui + uiuk;
-        uiuj[1][i][j][k] = ujui + ujuk;
-        uiuj[2][i][j][k] = ujuk + uiuk;
+        uiuj[0][i][j][k] = ujui + uiuk + ui * ui;
+        uiuj[1][i][j][k] = ujui + ujuk + uj * uj;
+        uiuj[2][i][j][k] = ujuk + uiuk + uk * uk;
     }
     _Grid<Speed> u_trans(inner_grid_shape);
     for(const auto& idxs: inner_grid_indices) {
@@ -67,7 +67,7 @@ VOF<allocator>::compute_transport_velocity(const _StaggeredGrid& before,
             }
             nbcells = 2;
             u_trans[idxs][dim] =
-                (uiuj[0][plus] - uiuj[0][minus]) / (nbcells * dx[dim]) +
+                -(uiuj[dim][plus] - uiuj[dim][minus]) / (nbcells * dx[dim]) +
                 forces[idxs][dim];
             assert(not std::isnan(u_trans[idxs][dim]));
         }
@@ -196,15 +196,15 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
         const auto cell_vf = before.volume_fraction[i][j][k];
         if(0 > cell_vf) {
             // assert(false);
-            before.volume_fraction[i][j][k] = 0;
+            // before.volume_fraction[i][j][k] = 0;
         } else if(1 < cell_vf) {
             // assert(false);
-            before.volume_fraction[i][j][k] = 1.0;
+            // before.volume_fraction[i][j][k] = 1.0;
         } else if(0 == cell_vf or 1 == cell_vf) {
             continue;
         }
         /* Reconstruction of the line segment with Mixed Young Centered */
-        std::array<double, 3> normal;
+        std::array<double, 3> normal = {0, 0, 0};
         for(int di = -1; di <= 1; di++) {
             int di_pushed = di;
             if(i + di < 0 or i + di >= before.volume_fraction.shape()[0])
@@ -226,20 +226,26 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
                     if(di == -1 or di == 1)
                         normal[0] +=
                             di *
-                            before.volume_fraction[i + di_pushed][j + dj_pushed]
-                                                  [k + dk_pushed] *
+                            std::clamp(before.volume_fraction[i + di_pushed]
+                                                             [j + dj_pushed]
+                                                             [k + dk_pushed],
+                                       0.0, 1.0) *
                             coeff;
                     if(dj == -1 or dj == 1)
                         normal[1] +=
                             dj *
-                            before.volume_fraction[i + di_pushed][j + dj_pushed]
-                                                  [k + dk_pushed] *
+                            std::clamp(before.volume_fraction[i + di_pushed]
+                                                             [j + dj_pushed]
+                                                             [k + dk_pushed],
+                                       0.0, 1.0) *
                             coeff;
                     if(dk == -1 or dk == 1)
                         normal[2] +=
                             dk *
-                            before.volume_fraction[i + di_pushed][j + dj_pushed]
-                                                  [k + dk_pushed] *
+                            std::clamp(before.volume_fraction[i + di_pushed]
+                                                             [j + dj_pushed]
+                                                             [k + dk_pushed],
+                                       0.0, 1.0) *
                             coeff;
                 }
             }
@@ -338,6 +344,7 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
                 const double alpha_var = alpha - n[2];
                 if(n[0] >= alpha_var) {
                     intersect[7] = alpha_var / n[0];
+                    intersect[11] = 0.0;
                 } else {
                     intersect[7] = 1.0;
                     intersect[11] = (alpha_var - n[0]) / n[1];
@@ -536,6 +543,8 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
                     (after.u[dim][idxs] - after.u[dim][idxs_after]);
             }
             assert(not std::isnan(after.volume_fraction[idxs]));
+            after.volume_fraction[idxs] =
+                std::clamp(after.volume_fraction[idxs], 0.0, 1.0);
         }
     }
 }
