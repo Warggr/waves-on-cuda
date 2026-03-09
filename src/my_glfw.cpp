@@ -223,7 +223,7 @@ void MyGLFW::processInput() {
         _state = CLOSED;
     }
 
-    const float cameraSpeed = 0.05f; // adjust accordingly
+    const float cameraSpeed = 0.05f;
     if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         cameraPos += cameraSpeed * cameraFront;
     if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)

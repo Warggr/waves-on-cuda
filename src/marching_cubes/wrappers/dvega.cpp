@@ -25,9 +25,6 @@ struct GRD_wrapper {
     std::vector<const GRD_data_type**> dim2;
 };
 
-#define XSTR(x) #x
-#define STR(x) XSTR(x)
-
 GRD_wrapper native_to_lib(const GridView<double, 3>& grid) {
     GRD_wrapper result;
     _GRD& lib_grid = result.lib_grid;
@@ -38,9 +35,7 @@ GRD_wrapper native_to_lib(const GridView<double, 3>& grid) {
         lib_grid.d[j] = 1.0 / (grid.shape()[j] - 1);
         lib_grid.r0[j] = 0.0;
     }
-    // The const_cast is a workaround for the lib, which does not modify
-    // its argument but still doesn't declare it as const
-    result.dim2.resize(grid.size() / grid[0][0].size());
+    result.dim1.reserve(grid.shape()[0] * grid.shape()[1]);
     for(const auto& sheet: grid) {
         for(const auto& line: sheet) {
             result.dim1.push_back(line.data());
@@ -51,6 +46,8 @@ GRD_wrapper native_to_lib(const GridView<double, 3>& grid) {
     for(int i = 0; i < grid.shape()[0]; i++) {
         result.dim2[i] = &result.dim1[i * sheet_size_in_lines];
     }
+    // The const_cast is a workaround for the lib, which does not modify
+    // its argument but still doesn't declare it as const
     lib_grid.F = const_cast<GRD_data_type***>(&(*result.dim2.begin()));
     for(const auto& [i, j, k]: grid.indices()) {
         assert(&lib_grid.F[i][j][k] == &grid[i][j][k]);

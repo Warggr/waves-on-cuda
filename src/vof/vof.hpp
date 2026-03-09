@@ -1,7 +1,6 @@
 #include "grid.hpp"
 #include "scheme.hpp"
 #include <array>
-#include <memory>
 
 constexpr int ndim = 3;
 using Speed = std::array<double, ndim>;
