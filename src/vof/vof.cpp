@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <ostream>
+#include <tuple>
 
 double rho(double volume_fraction) {
     return 0.01 + 1 * volume_fraction;
@@ -154,6 +155,203 @@ std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec) {
     return os;
 }
 
+std::array<double, 12> get_intersect(double volume_fraction,
+                                     std::span<double, 3> normal) {
+    /*
+    +--8---+.
+    |`7    | a.
+    2  `+--+-b-+
+    |   4  5   |
+    +-1-+--+.  9
+     `0 |    6.|
+       `+-3----+
+    */
+    std::array<double, 12> intersect;
+    const std::array<double, ndim> n = {
+        std::abs(normal[0]), std::abs(normal[1]), std::abs(normal[2])};
+    const double alpha = volume_fraction * (n[0] + n[1] + n[2]);
+    if(n[0] >= alpha) {
+        intersect[0] = alpha / n[0];
+        intersect[3] = 0.0;
+        intersect[4] = 0.0;
+        intersect[9] = 0.0;
+    } else {
+        intersect[0] = 1.0;
+        const double alpha_var = alpha - n[0];
+        if(n[1] >= alpha_var) {
+            assert(n[1] != 0);
+            intersect[3] = alpha_var / n[1];
+            assert(not std::isnan(intersect[3]));
+            intersect[9] = 0.0;
+        } else {
+            intersect[3] = 1.0;
+            intersect[9] = (alpha_var - n[1]) / n[2];
+        }
+        if(n[2] >= alpha_var) {
+            intersect[4] = alpha_var / n[2];
+        } else {
+            intersect[4] = 1.0;
+        }
+    }
+    if(n[1] >= alpha) {
+        intersect[1] = alpha / n[1];
+        intersect[5] = 0.0;
+        intersect[6] = 0.0;
+        intersect[10] = 0.0;
+    } else {
+        intersect[1] = 1.0;
+        const double alpha_var = alpha - n[1];
+        if(n[2] >= alpha_var) {
+            intersect[5] = alpha_var / n[2];
+            intersect[10] = 0.0;
+        } else {
+            intersect[5] = 1.0;
+            intersect[10] = (alpha_var - n[2]) / n[0];
+        }
+        if(n[0] >= alpha_var) {
+            intersect[6] = alpha_var / n[0];
+        } else {
+            intersect[6] = 1.0;
+        }
+    }
+    if(n[2] >= alpha) {
+        intersect[2] = alpha / n[2];
+        intersect[7] = 0.0;
+        intersect[8] = 0.0;
+        intersect[11] = 0.0;
+    } else {
+        intersect[2] = 1.0;
+        const double alpha_var = alpha - n[2];
+        if(n[0] >= alpha_var) {
+            intersect[7] = alpha_var / n[0];
+            intersect[11] = 0.0;
+        } else {
+            intersect[7] = 1.0;
+            intersect[11] = (alpha_var - n[0]) / n[1];
+        }
+        if(n[1] >= alpha_var) {
+            intersect[8] = alpha_var / n[1];
+        } else {
+            intersect[8] = 1.0;
+        }
+    }
+    return intersect;
+}
+
+std::tuple<std::array<double, 3>, std::array<double, 3>>
+get_wall_sizes(double volume_fraction, std::span<double, 3> normal) {
+    std::array<double, 3> wall_sizes_early, wall_sizes_late;
+    if(volume_fraction >= 1.0) {
+        for(int dim = 0; dim < ndim; dim++) {
+            wall_sizes_early[dim] = 1.0;
+            wall_sizes_late[dim] = 1.0;
+        }
+    } else if(volume_fraction <= 0.0) {
+        for(int dim = 0; dim < ndim; dim++) {
+            wall_sizes_early[dim] = 0.0;
+            wall_sizes_late[dim] = 0.0;
+        }
+    } else {
+        std::array<double, 12> intersect =
+            get_intersect(volume_fraction, normal);
+        std::array<double, ndim> wall_sizes_early_rot, wall_sizes_late_rot;
+        if(intersect[10] > 0) {
+            wall_sizes_early_rot[0] = 1.0;
+        } else {
+            if(intersect[1] < 1.0 and intersect[2] < 1.0) {
+                wall_sizes_early_rot[0] = 0.5 * intersect[1] * intersect[2];
+            } else if(intersect[1] >= 1.0 and intersect[2] < 1.0) {
+                wall_sizes_early_rot[0] = 0.5 * (intersect[5] + intersect[2]);
+            } else if(intersect[1] < 1.0 and intersect[2] >= 1.0) {
+                wall_sizes_early_rot[0] = 0.5 * (intersect[1] + intersect[8]);
+            } else {
+                wall_sizes_early_rot[0] = 1 - 0.5 * intersect[8] * intersect[5];
+            }
+        }
+        if(intersect[0] < 1.0) {
+            wall_sizes_late_rot[0] = 0.0;
+        } else {
+            if(intersect[3] < 1.0 and intersect[4] < 1.0) {
+                wall_sizes_late_rot[0] = 0.5 * intersect[3] * intersect[4];
+            } else if(intersect[3] >= 1.0 and intersect[4] < 1.0) {
+                wall_sizes_late_rot[0] = 0.5 * (intersect[4] + intersect[9]);
+            } else if(intersect[3] < 1.0 and intersect[4] >= 1.0) {
+                wall_sizes_late_rot[0] = 0.5 * (intersect[3] + intersect[11]);
+            } else {
+                wall_sizes_late_rot[0] = 1 - 0.5 * intersect[9] * intersect[11];
+            }
+        }
+        if(intersect[11] > 0) {
+            wall_sizes_early_rot[1] = 1.0;
+        } else {
+            if(intersect[0] < 1.0 and intersect[2] < 1.0) {
+                wall_sizes_early_rot[1] = 0.5 * intersect[0] * intersect[2];
+            } else if(intersect[0] >= 1.0 and intersect[2] < 1.0) {
+                wall_sizes_early_rot[1] = 0.5 * (intersect[4] + intersect[2]);
+            } else if(intersect[0] < 1.0 and intersect[2] >= 1.0) {
+                wall_sizes_early_rot[1] = 0.5 * (intersect[0] + intersect[7]);
+            } else {
+                wall_sizes_early_rot[1] = 1 - 0.5 * intersect[7] * intersect[4];
+            }
+        }
+        if(intersect[1] < 1.0) {
+            wall_sizes_late_rot[1] = 0.0;
+        } else {
+            if(intersect[5] < 1.0 and intersect[6] < 1.0) {
+                wall_sizes_late_rot[1] = 0.5 * intersect[5] * intersect[6];
+            } else if(intersect[5] >= 1.0 and intersect[6] < 1.0) {
+                wall_sizes_late_rot[1] = 0.5 * (intersect[6] + intersect[10]);
+            } else if(intersect[5] < 1.0 and intersect[6] >= 1.0) {
+                wall_sizes_late_rot[1] = 0.5 * (intersect[5] + intersect[9]);
+            } else {
+                wall_sizes_late_rot[1] = 1 - 0.5 * intersect[9] * intersect[10];
+            }
+        }
+        if(intersect[9] > 0) {
+            wall_sizes_early_rot[2] = 1.0;
+        } else {
+            if(intersect[0] < 1.0 and intersect[1] < 1.0) {
+                wall_sizes_early_rot[2] = 0.5 * intersect[0] * intersect[1];
+            } else if(intersect[0] >= 1.0 and intersect[1] < 1.0) {
+                wall_sizes_early_rot[2] = 0.5 * (intersect[3] + intersect[1]);
+            } else if(intersect[0] < 1.0 and intersect[1] >= 1.0) {
+                wall_sizes_early_rot[2] = 0.5 * (intersect[0] + intersect[6]);
+            } else {
+                wall_sizes_early_rot[2] = 1 - 0.5 * intersect[6] * intersect[3];
+            }
+        }
+        if(intersect[2] < 1.0) {
+            wall_sizes_late_rot[2] = 0.0;
+        } else {
+            if(intersect[7] < 1.0 and intersect[8] < 1.0) {
+                wall_sizes_late_rot[2] = 0.5 * intersect[7] * intersect[8];
+            } else if(intersect[7] >= 1.0 and intersect[8] < 1.0) {
+                wall_sizes_late_rot[2] = 0.5 * (intersect[8] + intersect[11]);
+            } else if(intersect[7] < 1.0 and intersect[8] >= 1.0) {
+                wall_sizes_late_rot[2] = 0.5 * (intersect[7] + intersect[10]);
+            } else {
+                wall_sizes_late_rot[2] =
+                    1 - 0.5 * intersect[11] * intersect[10];
+            }
+        }
+
+        for(int dim = 0; dim < ndim; dim++) {
+            if(normal[dim] > 0) {
+                wall_sizes_late[dim] = wall_sizes_late_rot[dim];
+                wall_sizes_early[dim] = wall_sizes_early_rot[dim];
+            } else {
+                wall_sizes_late[dim] = wall_sizes_early_rot[dim];
+                wall_sizes_early[dim] = wall_sizes_late_rot[dim];
+            }
+            if(normal[dim] == 0)
+                assert(wall_sizes_early_rot[dim] == wall_sizes_late_rot[dim]);
+            assert(not std::isnan(wall_sizes_early[dim]));
+            assert(not std::isnan(wall_sizes_late[dim]));
+        }
+    }
+    return std::make_tuple(wall_sizes_early, wall_sizes_late);
+}
+
 template<template<typename> class allocator>
 void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
                           double _t, double dt) const {
@@ -262,214 +460,14 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
         normals[i][j][k] = normal;
     }
 
-    _Grid<std::array<float, ndim>> wall_sizes_early(
+    _Grid<std::array<double, ndim>> wall_sizes_early(
         before.volume_fraction.shape()),
         wall_sizes_late(before.volume_fraction.shape());
     for(const auto& idxs: before.volume_fraction.indices()) {
-        /*
-        +--8---+.
-        |`7    | a.
-        2  `+--+-b-+
-        |   4  5   |
-        +-1-+--+.  9
-         `0 |    6.|
-           `+-3----+
-        */
-        if(before.volume_fraction[idxs] >= 1.0) {
-            for(int dim = 0; dim < ndim; dim++) {
-                wall_sizes_early[idxs][dim] = 1.0;
-                wall_sizes_late[idxs][dim] = 1.0;
-            }
-        } else if(before.volume_fraction[idxs] <= 0.0) {
-            for(int dim = 0; dim < ndim; dim++) {
-                wall_sizes_early[idxs][dim] = 0.0;
-                wall_sizes_late[idxs][dim] = 0.0;
-            }
-        } else {
-            double intersect[12];
-            const std::array<double, ndim> n = {std::abs(normals[idxs][0]),
-                                                std::abs(normals[idxs][1]),
-                                                std::abs(normals[idxs][2])};
-            std::array<float, ndim> wall_sizes_early_rot, wall_sizes_late_rot;
-            const double alpha =
-                before.volume_fraction[idxs] * (n[0] + n[1] + n[2]);
-            if(n[0] >= alpha) {
-                intersect[0] = alpha / n[0];
-                intersect[3] = 0.0;
-                intersect[4] = 0.0;
-                intersect[9] = 0.0;
-            } else {
-                intersect[0] = 1.0;
-                const double alpha_var = alpha - n[0];
-                if(n[1] >= alpha_var) {
-                    assert(n[1] != 0);
-                    intersect[3] = alpha_var / n[1];
-                    assert(not std::isnan(intersect[3]));
-                    intersect[9] = 0.0;
-                } else {
-                    intersect[3] = 1.0;
-                    intersect[9] = (alpha_var - n[1]) / n[2];
-                }
-                if(n[2] >= alpha_var) {
-                    intersect[4] = alpha_var / n[2];
-                } else {
-                    intersect[4] = 1.0;
-                }
-            }
-            if(n[1] >= alpha) {
-                intersect[1] = alpha / n[1];
-                intersect[5] = 0.0;
-                intersect[6] = 0.0;
-                intersect[10] = 0.0;
-            } else {
-                intersect[1] = 1.0;
-                const double alpha_var = alpha - n[1];
-                if(n[2] >= alpha_var) {
-                    intersect[5] = alpha_var / n[2];
-                    intersect[10] = 0.0;
-                } else {
-                    intersect[5] = 1.0;
-                    intersect[10] = (alpha_var - n[2]) / n[0];
-                }
-                if(n[0] >= alpha_var) {
-                    intersect[6] = alpha_var / n[0];
-                } else {
-                    intersect[6] = 1.0;
-                }
-            }
-            if(n[2] >= alpha) {
-                intersect[2] = alpha / n[2];
-                intersect[7] = 0.0;
-                intersect[8] = 0.0;
-                intersect[11] = 0.0;
-            } else {
-                intersect[2] = 1.0;
-                const double alpha_var = alpha - n[2];
-                if(n[0] >= alpha_var) {
-                    intersect[7] = alpha_var / n[0];
-                    intersect[11] = 0.0;
-                } else {
-                    intersect[7] = 1.0;
-                    intersect[11] = (alpha_var - n[0]) / n[1];
-                }
-                if(n[1] >= alpha_var) {
-                    intersect[8] = alpha_var / n[1];
-                } else {
-                    intersect[8] = 1.0;
-                }
-            }
-            if(intersect[10] > 0) {
-                wall_sizes_early_rot[0] = 1.0;
-            } else {
-                if(intersect[1] < 1.0 and intersect[2] < 1.0) {
-                    wall_sizes_early_rot[0] = 0.5 * intersect[1] * intersect[2];
-                } else if(intersect[1] >= 1.0 and intersect[2] < 1.0) {
-                    wall_sizes_early_rot[0] =
-                        0.5 * (intersect[5] + intersect[2]);
-                } else if(intersect[1] < 1.0 and intersect[2] >= 1.0) {
-                    wall_sizes_early_rot[0] =
-                        0.5 * (intersect[1] + intersect[8]);
-                } else {
-                    wall_sizes_early_rot[0] =
-                        1 - 0.5 * intersect[8] * intersect[5];
-                }
-            }
-            if(intersect[0] < 1.0) {
-                wall_sizes_late_rot[0] = 0.0;
-            } else {
-                if(intersect[3] < 1.0 and intersect[4] < 1.0) {
-                    wall_sizes_late_rot[0] = 0.5 * intersect[3] * intersect[4];
-                } else if(intersect[3] >= 1.0 and intersect[4] < 1.0) {
-                    wall_sizes_late_rot[0] =
-                        0.5 * (intersect[4] + intersect[9]);
-                } else if(intersect[3] < 1.0 and intersect[4] >= 1.0) {
-                    wall_sizes_late_rot[0] =
-                        0.5 * (intersect[3] + intersect[11]);
-                } else {
-                    wall_sizes_late_rot[0] =
-                        1 - 0.5 * intersect[9] * intersect[11];
-                }
-            }
-            if(intersect[11] > 0) {
-                wall_sizes_early_rot[1] = 1.0;
-            } else {
-                if(intersect[0] < 1.0 and intersect[2] < 1.0) {
-                    wall_sizes_early_rot[1] = 0.5 * intersect[0] * intersect[2];
-                } else if(intersect[0] >= 1.0 and intersect[2] < 1.0) {
-                    wall_sizes_early_rot[1] =
-                        0.5 * (intersect[4] + intersect[2]);
-                } else if(intersect[0] < 1.0 and intersect[2] >= 1.0) {
-                    wall_sizes_early_rot[1] =
-                        0.5 * (intersect[0] + intersect[7]);
-                } else {
-                    wall_sizes_early_rot[1] =
-                        1 - 0.5 * intersect[7] * intersect[4];
-                }
-            }
-            if(intersect[1] < 1.0) {
-                wall_sizes_late_rot[1] = 0.0;
-            } else {
-                if(intersect[5] < 1.0 and intersect[6] < 1.0) {
-                    wall_sizes_late_rot[1] = 0.5 * intersect[5] * intersect[6];
-                } else if(intersect[5] >= 1.0 and intersect[6] < 1.0) {
-                    wall_sizes_late_rot[1] =
-                        0.5 * (intersect[6] + intersect[10]);
-                } else if(intersect[5] < 1.0 and intersect[6] >= 1.0) {
-                    wall_sizes_late_rot[1] =
-                        0.5 * (intersect[5] + intersect[9]);
-                } else {
-                    wall_sizes_late_rot[1] =
-                        1 - 0.5 * intersect[9] * intersect[10];
-                }
-            }
-            if(intersect[9] > 0) {
-                wall_sizes_early_rot[2] = 1.0;
-            } else {
-                if(intersect[0] < 1.0 and intersect[1] < 1.0) {
-                    wall_sizes_early_rot[2] = 0.5 * intersect[0] * intersect[1];
-                } else if(intersect[0] >= 1.0 and intersect[1] < 1.0) {
-                    wall_sizes_early_rot[2] =
-                        0.5 * (intersect[3] + intersect[1]);
-                } else if(intersect[0] < 1.0 and intersect[1] >= 1.0) {
-                    wall_sizes_early_rot[2] =
-                        0.5 * (intersect[0] + intersect[6]);
-                } else {
-                    wall_sizes_early_rot[2] =
-                        1 - 0.5 * intersect[6] * intersect[3];
-                }
-            }
-            if(intersect[2] < 1.0) {
-                wall_sizes_late_rot[2] = 0.0;
-            } else {
-                if(intersect[7] < 1.0 and intersect[8] < 1.0) {
-                    wall_sizes_late_rot[2] = 0.5 * intersect[7] * intersect[8];
-                } else if(intersect[7] >= 1.0 and intersect[8] < 1.0) {
-                    wall_sizes_late_rot[2] =
-                        0.5 * (intersect[8] + intersect[11]);
-                } else if(intersect[7] < 1.0 and intersect[8] >= 1.0) {
-                    wall_sizes_late_rot[2] =
-                        0.5 * (intersect[7] + intersect[10]);
-                } else {
-                    wall_sizes_late_rot[2] =
-                        1 - 0.5 * intersect[11] * intersect[10];
-                }
-            }
-
-            for(int dim = 0; dim < ndim; dim++) {
-                if(normals[idxs][dim] > 0) {
-                    wall_sizes_late[idxs][dim] = wall_sizes_late_rot[dim];
-                    wall_sizes_early[idxs][dim] = wall_sizes_early_rot[dim];
-                } else {
-                    wall_sizes_late[idxs][dim] = wall_sizes_early_rot[dim];
-                    wall_sizes_early[idxs][dim] = wall_sizes_late_rot[dim];
-                }
-                if(normals[idxs][dim] == 0)
-                    assert(wall_sizes_early_rot[dim] ==
-                           wall_sizes_late_rot[dim]);
-                assert(not std::isnan(wall_sizes_early[idxs][dim]));
-                assert(not std::isnan(wall_sizes_late[idxs][dim]));
-            }
-        }
+        const auto& [wall_sizes_early_i, wall_sizes_late_i] =
+            get_wall_sizes(before.volume_fraction[idxs], normals[idxs]);
+        wall_sizes_early[idxs] = wall_sizes_early_i;
+        wall_sizes_late[idxs] = wall_sizes_late_i;
     }
 
     _Grid<std::array<double, ndim>> advected_volume_early(
@@ -484,10 +482,10 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
             sounds too hard */
             advected_volume_early[idxs][dim] =
                 after.u[dim][idxs] *
-                std::clamp(wall_sizes_early[idxs][dim], 0.0f, 1.0f);
+                std::clamp(wall_sizes_early[idxs][dim], 0.0, 1.0);
             advected_volume_late[idxs][dim] =
                 after.u[dim][idxs_after] *
-                std::clamp(wall_sizes_late[idxs][dim], 0.0f, 1.0f);
+                std::clamp(wall_sizes_late[idxs][dim], 0.0, 1.0);
         }
     }
 

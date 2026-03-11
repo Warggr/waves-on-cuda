@@ -15,7 +15,7 @@ target_include_directories(advection_scheme PUBLIC scheme)
 
 option(NO_CUDA "Do not use CUDA." off)
 
-add_library(alloc grid.cu)
+add_library(alloc SHARED grid.cu)
 if(NO_CUDA)
     target_compile_definitions(alloc PUBLIC NO_CUDA)
 else()
@@ -41,7 +41,7 @@ find_package(Boost 1.40 COMPONENTS program_options REQUIRED)
 target_link_libraries(waves Boost::program_options)
 target_link_libraries(waves mc_renderer)
 target_link_libraries(waves vof_scheme)
-target_link_libraries(waves viewer)
+target_link_libraries(waves viewer alloc)
 
 option(NUMPY_LOAD "Load initial conditions from .npy files" on)
 

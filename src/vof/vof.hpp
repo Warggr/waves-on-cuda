@@ -1,6 +1,7 @@
 #include "grid.hpp"
 #include "scheme.hpp"
 #include <array>
+#include <span>
 
 constexpr int ndim = 3;
 using Speed = std::array<double, ndim>;
@@ -44,3 +45,8 @@ public:
     void step(const _StaggeredGrid& before, _StaggeredGrid& after, double t,
               double dt) const override;
 };
+
+std::array<double, 12> get_intersect(double volume_fraction,
+                                     std::span<double, 3> normal);
+std::tuple<std::array<double, 3>, std::array<double, 3>>
+get_wall_sizes(double volume_fraction, std::span<double, 3> normal);
