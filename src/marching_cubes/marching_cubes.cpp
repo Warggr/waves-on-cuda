@@ -1,5 +1,6 @@
 #include "marching_cubes.hpp"
 #include "grid.hpp"
+#include "cube_utils/permute.hpp"
 #include "generated/marching_cubes_cache.hpp"
 #ifdef TIMING
 #include "timing.hpp"
@@ -7,18 +8,6 @@
 #include <span>
 
 using std::size_t;
-
-template<typename d, typename idx_t, std::size_t size>
-void permute(std::span<d, size> original,
-             const std::span<idx_t, size> permutation) {
-    std::array<d, size> result;
-    for(size_t i = 0; i < size; i++) {
-        result[permutation[i]] = original[i];
-    }
-    for(size_t i = 0; i < size; i++) {
-        original[i] = result[i];
-    }
-}
 
 namespace waves_on_cuda::marching_cubes {
 

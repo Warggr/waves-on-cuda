@@ -1,10 +1,13 @@
 #include "vof.hpp"
+#include "intersect.hpp"
+#include "cube_utils/permute.hpp"
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/SparseCore>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <ostream>
+#include <span>
 #include <tuple>
 
 double rho(double volume_fraction) {
@@ -155,8 +158,8 @@ std::ostream& operator<<(std::ostream& os, const std::array<dtype, 3>& vec) {
     return os;
 }
 
-std::array<double, 12> get_intersect(double volume_fraction,
-                                     std::span<double, 3> normal) {
+std::array<double, 12> get_intersect_scalar(double volume_fraction,
+                                            std::span<double, 3> normal) {
     /*
     +--8---+.
     |`7    | a.
@@ -238,6 +241,46 @@ std::array<double, 12> get_intersect(double volume_fraction,
     return intersect;
 }
 
+static const std::array<std::array<std::size_t, 12>, 3> flip_normal_sign = {
+    {{{0, 3, 4, 1, 2, 9, 6, 7, 11, 5, 10, 8}},
+     {{6, 1, 5, 3, 9, 2, 0, 10, 8, 4, 7, 11}},
+     {{7, 8, 2, 11, 4, 5, 10, 0, 1, 9, 6, 3}}}};
+
+const std::array<unsigned int, 12> switching_dim = {0, 1, 2, 1, 2, 2,
+                                                    0, 0, 1, 2, 0, 1};
+
+const std::array<std::array<double, 3>, 12> baselines = {{
+    {{0, 0, 0}},
+    {{0, 0, 0}},
+    {{0, 0, 0}},
+    {{1, 0, 0}},
+    {{1, 0, 0}},
+    {{0, 1, 0}},
+    {{0, 1, 0}},
+    {{0, 0, 1}},
+    {{0, 0, 1}},
+    {{1, 1, 0}},
+    {{0, 1, 1}},
+    {{1, 0, 1}},
+}};
+
+std::tuple<std::array<double, 12>, std::array<bool, 12>>
+get_intersect(double volume_fraction, std::span<double, 3> normal) {
+    /* See diagram above. */
+    std::array<double, 12> intersect =
+        get_intersect_scalar(volume_fraction, normal);
+    for(int dim = 0; dim < 3; dim++) {
+        if(normal[dim] < 0) {
+            permute(std::span(intersect), std::span(flip_normal_sign[dim]));
+        }
+    }
+    std::array<bool, 12> switched_sign;
+    for(int i = 0; i < 12; i++) {
+        switched_sign[i] = (normal[switching_dim[i]] < 0);
+    }
+    return {intersect, switched_sign};
+}
+
 std::tuple<std::array<double, 3>, std::array<double, 3>>
 get_wall_sizes(double volume_fraction, std::span<double, 3> normal) {
     std::array<double, 3> wall_sizes_early, wall_sizes_late;
@@ -253,7 +296,7 @@ get_wall_sizes(double volume_fraction, std::span<double, 3> normal) {
         }
     } else {
         std::array<double, 12> intersect =
-            get_intersect(volume_fraction, normal);
+            get_intersect_scalar(volume_fraction, normal);
         std::array<double, ndim> wall_sizes_early_rot, wall_sizes_late_rot;
         if(intersect[10] > 0) {
             wall_sizes_early_rot[0] = 1.0;
