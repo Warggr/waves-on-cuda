@@ -14,6 +14,11 @@ target_include_directories(advection_scheme PUBLIC scheme)
 
 
 option(NO_CUDA "Do not use CUDA." off)
+if(NOT NO_CUDA)
+    if(ASAN)
+        error("Address sanitizer cannot be used with CUDA! Generate with -DNO_CUDA=ON or -DASAN=OFF.")
+    endif()
+endif()
 
 add_library(alloc SHARED grid.cu)
 if(NO_CUDA)
