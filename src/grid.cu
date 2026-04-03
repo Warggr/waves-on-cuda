@@ -9,7 +9,7 @@ void* CUDAMalloc::calloc(std::size_t num, std::size_t size) {
     if(success != cudaSuccess) {
         throw std::runtime_error(cudaGetErrorName(success));
     }
-    memset(mem, 0, size);
+    memset(mem, 0, num * size);
     return mem;
 }
 
