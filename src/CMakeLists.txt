@@ -9,6 +9,13 @@ target_link_libraries(viewer PUBLIC glm::glm)
 target_link_libraries(viewer PRIVATE GLU)
 target_include_directories(viewer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
+find_package(OpenCV)
+if(OpenCV_FOUND)
+    target_compile_definitions(viewer PRIVATE HAS_OPENCV)
+    target_include_directories(viewer PRIVATE ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(viewer PRIVATE ${OpenCV_LIBS})
+endif()
+
 add_library(advection_scheme advection_scheme.cu)
 target_include_directories(advection_scheme PUBLIC scheme)
 
@@ -23,7 +30,6 @@ endif()
 add_library(alloc SHARED grid.cu)
 if(NO_CUDA)
     target_compile_definitions(alloc PUBLIC NO_CUDA)
-else()
 endif()
 
 add_subdirectory(marching_cubes)

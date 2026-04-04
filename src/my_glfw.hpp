@@ -24,10 +24,11 @@ protected:
     float mouseX = 400, mouseY = 300;
     int width, height;
     bool first_mouse = true;
+    bool clicking_paused = false, clicked_paused = false;
     std::size_t nbTriangles;
     GLuint vao = 0, ubo;
 
-    void mouse_callback(double xpos, double ypos);
+    void mouse_callback(double xpos, double ypos, bool shift);
     friend void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     void processInput();
 

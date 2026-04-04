@@ -6,6 +6,10 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/mat4x4.hpp>
+#if HAS_OPENCV
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#endif
 #include <cassert>
 #include <cstring>
 #include <filesystem>
@@ -35,6 +39,18 @@ static std::vector<char> readAllBytes(const std::filesystem::path& filename) {
 
     return result;
 }
+
+#if HAS_OPENCV
+void saveScreenshot(int windowWidth, int windowHeight) {
+    cv::Mat img(windowHeight, windowWidth, CV_8UC3);
+    glPixelStorei(GL_PACK_ALIGNMENT, (img.step & 3) ? 1 : 4);
+
+    glPixelStorei(GL_PACK_ROW_LENGTH, img.step / img.elemSize());
+    glReadPixels(0, 0, img.cols, img.rows, GL_BGR, GL_UNSIGNED_BYTE, img.data);
+    cv::flip(img, img, 0);
+    cv::imwrite("/tmp/screenshot.png", img);
+}
+#endif
 
 std::string_view get_error_msg(GLenum error) {
     switch(error) {
@@ -134,7 +150,8 @@ void debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     auto self = static_cast<MyGLFW*>(glfwGetWindowUserPointer(window));
-    self->mouse_callback(xpos, ypos);
+    bool shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
+    self->mouse_callback(xpos, ypos, shift);
 }
 
 void MyGLFW::initialize() {
@@ -187,7 +204,7 @@ MyGLFW::~MyGLFW() {
     }
 }
 
-void MyGLFW::mouse_callback(double xpos, double ypos) {
+void MyGLFW::mouse_callback(double xpos, double ypos, bool shift) {
     if(first_mouse) {
         first_mouse = false;
         mouseX = xpos;
@@ -197,22 +214,28 @@ void MyGLFW::mouse_callback(double xpos, double ypos) {
     float xoffset = xpos - mouseX, yoffset = ypos - mouseY;
     mouseX = xpos;
     mouseY = ypos;
-    constexpr float sensitivity = 0.1f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
-    yaw -= xoffset;
-    pitch -= yoffset;
+    if(shift) {
+        constexpr float sensitivity = 0.01f;
+        cameraPos.x += xoffset * sensitivity;
+        cameraPos.y += yoffset * sensitivity;
+    } else {
+        constexpr float sensitivity = 0.1f;
+        xoffset *= sensitivity;
+        yoffset *= sensitivity;
+        yaw -= xoffset;
+        pitch -= yoffset;
 
-    if(pitch > 89.0f)
-        pitch = 89.0f;
-    if(pitch < -89.0f)
-        pitch = -89.0f;
+        if(pitch > 89.0f)
+            pitch = 89.0f;
+        if(pitch < -89.0f)
+            pitch = -89.0f;
 
-    glm::vec3 direction;
-    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(yaw) * cos(glm::radians(pitch)));
-    direction.z = sin(glm::radians(pitch));
-    cameraFront = glm::normalize(direction);
+        glm::vec3 direction;
+        direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        direction.y = sin(glm::radians(yaw) * cos(glm::radians(pitch)));
+        direction.z = sin(glm::radians(pitch));
+        cameraFront = glm::normalize(direction);
+    }
 }
 
 void MyGLFW::processInput() {
@@ -224,9 +247,11 @@ void MyGLFW::processInput() {
     }
 
     const float cameraSpeed = 0.05f;
-    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS and
+       glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         cameraPos += cameraSpeed * cameraFront;
-    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS and
+       glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) != GLFW_PRESS)
         cameraPos -= cameraSpeed * cameraFront;
     if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         cameraPos -=
@@ -234,6 +259,23 @@ void MyGLFW::processInput() {
     if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         cameraPos +=
             glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if(glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
+        cameraPos -= cameraUp * cameraSpeed;
+    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraUp * cameraSpeed;
+    if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if(not clicking_paused) {
+            clicked_paused = not clicked_paused;
+            clicking_paused = true;
+        }
+    } else {
+        clicking_paused = false;
+    }
+#if HAS_OPENCV
+    if(glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+        saveScreenshot(width, height);
+    }
+#endif
 }
 
 void MyGLFW::signal_should_close() {
