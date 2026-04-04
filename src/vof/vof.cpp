@@ -85,6 +85,7 @@ template<template<typename> class allocator>
     std::array<double, 3> dx, const GridView<double, ndim> previous_pressure) {
     _Grid<double> div_u(volume_fraction.shape());
     for(const auto& idxs: div_u.indices()) {
+        assert(div_u[idxs] == 0);
         for(int dim = 0; dim < ndim; dim++) {
             std::array<std::size_t, 3> plus = idxs, minus = idxs;
             int nbcells = 0;
@@ -135,7 +136,7 @@ template<template<typename> class allocator>
         A.insert(c, c) = -total;
     }
 
-    LeastSquaresConjugateGradient<SparseMatrix<double>> cg;
+    ConjugateGradient<SparseMatrix<double>, Lower | Upper> cg;
     cg.compute(A);
     Map<VectorXd> rhs(div_u.data(), div_u.size());
     Map<const VectorXd> previous_pressure_eig(previous_pressure.data(),
@@ -440,10 +441,10 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
         const auto cell_vf = before.volume_fraction[i][j][k];
         if(0 > cell_vf) {
             // assert(false);
-            // before.volume_fraction[i][j][k] = 0;
+            before.volume_fraction[i][j][k] = 0;
         } else if(1 < cell_vf) {
             // assert(false);
-            // before.volume_fraction[i][j][k] = 1.0;
+            before.volume_fraction[i][j][k] = 1.0;
         } else if(0 == cell_vf or 1 == cell_vf) {
             continue;
         }
@@ -498,8 +499,14 @@ void VOF<allocator>::step(const _StaggeredGrid& before, _StaggeredGrid& after,
         double normal_norm =
             std::sqrt(std::pow(normal[0], 2) + std::pow(normal[1], 2) +
                       std::pow(normal[2], 2));
-        for(int dim = 0; dim < ndim; dim++)
-            normal[dim] = -normal[dim] / normal_norm;
+        if(normal_norm == 0) {
+            normal[0] = 1.0; // Just set a random nonzero vector
+        } else {
+            for(int dim = 0; dim < ndim; dim++) {
+                normal[dim] = -normal[dim] / normal_norm;
+                assert(not std::isnan(normal[dim]));
+            }
+        }
         normals[i][j][k] = normal;
     }
 
